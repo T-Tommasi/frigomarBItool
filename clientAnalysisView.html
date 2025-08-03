@@ -1,0 +1,41 @@
+<div class="analytics-container">
+
+  <div class="content-card" id="client-master-list"> <div class="content-card-header">
+      <div>
+        <h3>Analisi Margini Cliente</h3>
+        <p>Riepilogo generale dei clienti e relativi margini.</p>
+      </div>
+<div class="search-bar-container">
+  <input type="text" id="client-analytics-search-input" class="search-input" placeholder="Cerca cliente...">
+</div>
+    </div>
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort-key="uuid">UUID</th>
+            <th class="sortable" data-sort-key="name">Nominativo Cliente</th>
+            <th class="sortable text-center" data-sort-key="productsCount">Prodotti Acq.</th>
+            <th class="sortable text-center" data-sort-key="totalRevenue">Costo / Ricavo Totale</th>
+            <th class="sortable text-right" data-sort-key="totalMargin">Margine Totale</th>
+            <th class="sortable text-center" data-sort-key="marginPercentage">Margine %</th>
+            <th class="text-center"></th> </tr>
+        </thead>
+        <tbody id="client-analytics-master-body">
+          <tr>
+            <td colspan="7" class="text-center" style="padding: 3rem;">Caricamento dati in corso...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="content-card" id="client-detail-view"> <div class="content-card-header">
+      <h3>Dettagli Prodotto per Cliente</h3>
+      <p>Seleziona un cliente dalla tabella a sinistra per visualizzare i dettagli.</p>
+    </div>
+    <div class="table-container" id="client-analytics-detail-body">
+    </div>
+  </div>
+
+</div>

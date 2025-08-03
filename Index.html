@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <?!= HtmlService.createHtmlOutputFromFile('stylesheet.html').getContent(); ?>
+</head>
+
+<body>
+
+  <div class="app-container">
+
+    <nav class="nav-menu">
+      <ul>
+        <li class="nav-item">
+          <a href="#" class="nav-link active" data-page="home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem;">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9,22 9,12 15,12 15,22" />
+            </svg>
+            Home
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <div class="nav-submenu-toggle" data-submenu="app-functions">
+            Analisi & Scadenze
+            <svg class="nav-submenu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,9 12,15 18,9" />
+            </svg>
+          </div>
+          <ul class="nav-submenu" id="app-functions">
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-page="invoices">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem;">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14,2 14,8 20,8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Scadenzario Clienti
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-page="vendors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem;">
+                  <path d="M20 7h-9a4 4 0 0 1-4-4V1a2 2 0 0 0-2 2v6.1A3.9 3.9 0 0 0 1 9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2 3.9 3.9 0 0 0-1-2.9V3a2 2 0 0 0-2-2 1 1 0 0 0-1 1v2a4 4 0 0 1-4 4z" />
+                  <path d="M10 15v4a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-4" />
+                </svg>
+                Scadenzario Fornitori
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-page="productAnalysis">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem;">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27,6.96 12,12.01 20.73,6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+                Analisi Prodotto
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-page="clientAnalysis">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem;">
+                   <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                   <circle cx="9" cy="7" r="4" />
+                   <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                   <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                Analisi Cliente
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <li class="nav-item">
+          <a href="#" class="nav-link" data-page="about">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.75rem;">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            About
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <main class="main-content">
+      <div class="content-header">
+        <div>
+          <h2 id="page-title">Benvenuto/a</h2>
+          <p id="page-subtitle">Seleziona una voce dal menu per iniziare</p>
+        </div>
+      </div>
+      <div class="content-body" id="app-content">
+        <div class="welcome-card fade-in">
+          <h3>Benvenuto nel tuo Dashboard</h3>
+          <p>Gestisci facilmente scadenzari, analisi e prodotti dalla sidebar a sinistra.</p>
+        </div>
+      </div>
+    </main>
+
+  </div>
+  <dialog id="details-modal" class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Dettagli Cliente</h3>
+      <div class="search-bar-container" id="modal-search-container" style="display: none;">
+        <input type="text" id="modal-search-input" class="search-input" placeholder="Filtra fatture...">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
+      <button id="modal-close-btn" class="modal-close-btn">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div id="modal-body" class="modal-body">
+      <p>Caricamento dettagli in corso...</p>
+    </div>
+    <div class="modal-footer">
+      <button id="modal-footer-close-btn" class="btn btn-secondary">Chiudi</button>
+    </div>
+  </dialog>
+
+  <?!= HtmlService.createHtmlOutputFromFile('jsRouter.html').getContent(); ?>
+
+</body>
+</html>

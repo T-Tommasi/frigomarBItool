@@ -1,0 +1,34 @@
+<div class="content-card fade-in">
+  <div class="content-card-header">
+    <div class="header-text">
+      <h3>Riepilogo Scadenze Clienti</h3>
+      <p>Clienti con fatture non saldate, ordinati per importo totale da incassare.</p>
+    </div>
+    <div class="search-bar-container">
+      <input type="text" id="invoice-search-input" class="search-input" placeholder="Cerca per nome o UUID...">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    </div>
+  </div>
+  <div class="table-container">
+    <table id="invoices-table" class="data-table"> <thead>
+        <tr>
+          <th class="sortable" data-sort-key="clientName">Nome Cliente</th>
+          <th class="sortable" data-sort-key="clientId">Codice Cliente</th>
+          <th class="sortable text-center" data-sort-key="invoiceCount">Fatture Aperte</th>
+          <th class="sortable text-right" data-sort-key="totalDue">Totale da Incassare</th>
+          <th class="sortable text-right" data-sort-key="totalOverdue">Totale >60gg</th>
+          <th class="sortable text-right" data-sort-key="totalPaid">Pagato</th>
+          <th class="text-center">Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="invoices-table-body">
+        <tr>
+          <td colspan="7" class="text-center" style="padding: 3rem;">Caricamento dati in corso...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

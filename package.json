@@ -1,0 +1,25 @@
+{
+  "name": "frigomar_bi_tool",
+  "version": "2.1.0",
+  "description": "a bussiness analysis suite customised for elaborating data from the italian software g2 by zucchetti - fully customisable, runs on gas backend.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/T-Tommasi/FrigomarBITool.git"
+  },
+  "keywords": [
+    "bitool",
+    "frigomar",
+    "zucchetti",
+    "g2"
+  ],
+  "author": "Thomas Tommasi",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/T-Tommasi/FrigomarBITool/issues"
+  },
+  "homepage": "https://github.com/T-Tommasi/FrigomarBITool#readme"
+}

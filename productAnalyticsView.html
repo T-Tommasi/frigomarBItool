@@ -1,0 +1,44 @@
+<div class="analytics-container">
+
+  <div class="content-card" id="product-master-list">
+    <div class="content-card-header">
+      <div>
+        <h3>Analisi Margini Prodotto</h3>
+        <p>Riepilogo generale dei prodotti e relativi margini.</p>
+      </div>
+      <div class="search-bar-container">
+        <input type="text" id="analytics-search-input" class="search-input" placeholder="Cerca prodotto...">
+      </div>
+    </div>
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort-key="uuid">UUID</th>
+            <th class="sortable" data-sort-key="name">Descrizione Prodotto</th>
+            <th class="sortable text-center" data-sort-key="totalSold">Q.tà Venduta</th>
+            <th class="sortable text-center" data-sort-key="saleIncome">Costo / Vendita</th>
+            <th class="sortable text-right" data-sort-key="margin">Margine</th>
+            <th class="sortable text-center" data-sort-key="percentageIncome">Percentuale</th>
+            <th class="text-center"></th>
+          </tr>
+        </thead>
+        <tbody id="analytics-master-body">
+          <tr>
+            <td colspan="7" class="text-center" style="padding: 3rem;">Caricamento dati in corso...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="content-card" id="product-detail-view">
+    <div class="content-card-header">
+      <h3>Dettagli Cliente per Prodotto</h3>
+      <p>Seleziona un prodotto dalla tabella a sinistra per visualizzare i dettagli.</p>
+    </div>
+    <div class="table-container" id="analytics-detail-body">
+    </div>
+  </div>
+
+</div>

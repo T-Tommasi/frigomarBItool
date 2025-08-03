@@ -1,0 +1,10 @@
+# Clasp credentials and project settings
+.clasp.json
+.clasprc.json
+
+# Node modules
+node_modules/
+
+# Secrets (if you store them locally)
+*.secret.js
+.env

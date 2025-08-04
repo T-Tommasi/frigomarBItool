@@ -26,6 +26,15 @@ class SheetWriter {
     targetSheet.getRange(1, 1, numRows, numCols).setValues(dataToWrite);
   }
 
+  static createNewPage(pageName) {
+    if (!pageName) {
+      throw new Error('invalid pageName parameter');
+    }
+    if (pageName != typeof 'string') {
+      throw new Error('invalid pageName, not a string');
+    }
+  }
+
   static _cleanContent(target) {
     if (target.getLastRow() > 1) {
       target

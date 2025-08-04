@@ -1,48 +1,94 @@
 function doGet(e) {
-  // --- AUTHORIZATION CHECK ---
-  const activeUserEmail = Session.getActiveUser().getEmail();
-  const authorizedUsersList = AUTHORIZED_USERS();
+  // Check if the request is an API call
+  if (e.parameter.endpoint === "data") {
+    // --- API LOGIC ---
+    const validation = validateUser();
+    if (!validation.authorized) {
+      return validation.response; // Return JSON error
+    }
 
-  const isAuthorized = Object.values(authorizedUsersList).some(user => user.MAIL === activeUserEmail);
+    const dashboardData = { message: "Successfully fetched data!" };
 
-  if (!isAuthorized) {
-    return HtmlService.createHtmlOutput(
-      `<div style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-                <h1>Accesso Negato</h1>
-                <p>Non sei autorizzato a visualizzare questa applicazione. Contatta l'amministratore.</p>
-            </div>`
-    );
+    return ContentService.createTextOutput(
+      JSON.stringify(dashboardData)
+    ).setMimeType(ContentService.MimeType.JSON);
   }
-  return HtmlService.createTemplateFromFile('Index.html')
+
+  // --- HTML SERVER LOGIC ---
+  // If it's not an API call, serve the main application shell
+  return HtmlService.createTemplateFromFile("Index.html")
     .evaluate()
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function validateUser() {
+  const email = Session.getActiveUser().getEmail();
+
+  if (!email) {
+    // This should not happen if deployed correctly, but, you know...
+    return {
+      authorized: false,
+      response: ContentService.createTextOutput(
+        JSON.stringify({ error: "Login required. Please refresh the page." })
+      )
+        .setMimeType(ContentService.MimeType.JSON)
+        .setStatusCode(401), // 401 Unauthorized
+    };
+  }
+
+  if (!ALLOWED_USERS.includes(email)) {
+    // The user is logged in, but not on our list.
+    return {
+      authorized: false,
+      response: ContentService.createTextOutput(
+        JSON.stringify({ error: `Access denied for ${email}.` })
+      )
+        .setMimeType(ContentService.MimeType.JSON)
+        .setStatusCode(403), // 403 Forbidden
+    };
+  }
+
+  // If we reach here, the user is authorized.
+  return { authorized: true, user: email };
 }
 
 function getClientSummaryData() {
   return ReaderService.getClientSummaryData();
 } //A necessary evil, google.script.run cannot summon a class method
 
-function loadVendorsView() { return "<h2>Scadenzario Fornitori - In Costruzione</h2>"; };
+function loadVendorsView() {
+  return "<h2>Scadenzario Fornitori - In Costruzione</h2>";
+}
 
 function loadClientAnalysisView() {
-  return HtmlService.createHtmlOutputFromFile('clientAnalysisView').getContent();
-};
-
-function loadProductAnalysisView() {
-  return HtmlService.createHtmlOutputFromFile('productAnalyticsView').getContent();
+  return HtmlService.createHtmlOutputFromFile(
+    "clientAnalysisView"
+  ).getContent();
 }
 
 function loadProductAnalysisView() {
-  return HtmlService.createHtmlOutputFromFile('productAnalyticsView').getContent();
-};
+  return HtmlService.createHtmlOutputFromFile(
+    "productAnalyticsView"
+  ).getContent();
+}
 
-function loadProductsView() { return "<h2>Prodotti & Residuo - In Costruzione</h2>"; };
-function loadAboutView() { return "<h2>About - In Costruzione</h2>"; };
+function loadProductAnalysisView() {
+  return HtmlService.createHtmlOutputFromFile(
+    "productAnalyticsView"
+  ).getContent();
+}
+
+function loadProductsView() {
+  return "<h2>Prodotti & Residuo - In Costruzione</h2>";
+}
+function loadAboutView() {
+  return "<h2>About - In Costruzione</h2>";
+}
 function loadMarginsView() {
   return "<h2>Analisi Margini - In Costruzione</h2>";
-};
+}
 function loadInvoicesView() {
-  return HtmlService.createHtmlOutputFromFile('invoicesPage').getContent();
+  return HtmlService.createHtmlOutputFromFile("invoicesPage").getContent();
 }
 
 /**
@@ -68,7 +114,11 @@ function getClientDetails(clientId) {
     const clientMap = ETLService.buildMapFromDbSheet(clientSheet);
 
     Logger.log(`Requesting clientId: "${clientId}" (Type: ${typeof clientId})`);
-    Logger.log(`Available keys in map: ${JSON.stringify(Object.keys(clientMap).slice(0, 10))}...`);
+    Logger.log(
+      `Available keys in map: ${JSON.stringify(
+        Object.keys(clientMap).slice(0, 10)
+      )}...`
+    );
 
     const client = clientMap[clientId];
 
@@ -76,27 +126,33 @@ function getClientDetails(clientId) {
       throw new Error(`Nessun cliente trovato con l'ID: ${clientId}`);
     }
     return client.toPlainObject();
-
   } catch (e) {
-    Logger.log(`!!! CRITICAL ERROR in getClientDetails for clientId: ${clientId}. Error: ${e.message} \nStack: ${e.stack}`);
+    Logger.log(
+      `!!! CRITICAL ERROR in getClientDetails for clientId: ${clientId}. Error: ${e.message} \nStack: ${e.stack}`
+    );
     throw new Error(`Recupero dettagli fallito: ${e.message}`);
   }
 }
 
 function getProductMarginData() {
   try {
-    Logger.log('Starting getProductMarginData...');
+    Logger.log("Starting getProductMarginData...");
 
-    const { productMap, negativeIncomeProductMap } = ReaderService.readAnalysisDb();
+    const { productMap, negativeIncomeProductMap } =
+      ReaderService.readAnalysisDb();
 
     Logger.log(`Raw productMap keys: ${Object.keys(productMap || {}).length}`);
-    Logger.log(`Raw negativeIncomeProductMap keys: ${Object.keys(negativeIncomeProductMap || {}).length}`);
+    Logger.log(
+      `Raw negativeIncomeProductMap keys: ${
+        Object.keys(negativeIncomeProductMap || {}).length
+      }`
+    );
 
     if (!productMap || Object.keys(productMap).length === 0) {
-      Logger.log('WARNING: No products found in productMap');
+      Logger.log("WARNING: No products found in productMap");
       return {
         productMap: {},
-        negativeIncomeProductMap: {}
+        negativeIncomeProductMap: {},
       };
     }
 
@@ -106,10 +162,15 @@ function getProductMarginData() {
     // Convert products to plain objects
     for (const key in productMap) {
       try {
-        if (productMap[key] && typeof productMap[key].toPlainObject === 'function') {
+        if (
+          productMap[key] &&
+          typeof productMap[key].toPlainObject === "function"
+        ) {
           plainProductMap[key] = productMap[key].toPlainObject();
         } else {
-          Logger.log(`WARNING: Product ${key} doesn't have toPlainObject method`);
+          Logger.log(
+            `WARNING: Product ${key} doesn't have toPlainObject method`
+          );
           plainProductMap[key] = productMap[key]; // Fallback to raw object
         }
       } catch (e) {
@@ -120,10 +181,16 @@ function getProductMarginData() {
     // Convert negative income products to plain objects
     for (const key in negativeIncomeProductMap) {
       try {
-        if (negativeIncomeProductMap[key] && typeof negativeIncomeProductMap[key].toPlainObject === 'function') {
-          plainNegativeIncomeProductMap[key] = negativeIncomeProductMap[key].toPlainObject();
+        if (
+          negativeIncomeProductMap[key] &&
+          typeof negativeIncomeProductMap[key].toPlainObject === "function"
+        ) {
+          plainNegativeIncomeProductMap[key] =
+            negativeIncomeProductMap[key].toPlainObject();
         } else {
-          Logger.log(`WARNING: Negative product ${key} doesn't have toPlainObject method`);
+          Logger.log(
+            `WARNING: Negative product ${key} doesn't have toPlainObject method`
+          );
           plainNegativeIncomeProductMap[key] = negativeIncomeProductMap[key]; // Fallback to raw object
         }
       } catch (e) {
@@ -131,20 +198,28 @@ function getProductMarginData() {
       }
     }
 
-    Logger.log(`Final plainProductMap keys: ${Object.keys(plainProductMap).length}`);
-    Logger.log(`Final plainNegativeIncomeProductMap keys: ${Object.keys(plainNegativeIncomeProductMap).length}`);
+    Logger.log(
+      `Final plainProductMap keys: ${Object.keys(plainProductMap).length}`
+    );
+    Logger.log(
+      `Final plainNegativeIncomeProductMap keys: ${
+        Object.keys(plainNegativeIncomeProductMap).length
+      }`
+    );
 
     // Log a sample product to verify structure
     const sampleKey = Object.keys(plainProductMap)[0];
     if (sampleKey) {
-      Logger.log(`Sample product structure for ${sampleKey}:`, JSON.stringify(plainProductMap[sampleKey], null, 2));
+      Logger.log(
+        `Sample product structure for ${sampleKey}:`,
+        JSON.stringify(plainProductMap[sampleKey], null, 2)
+      );
     }
 
     return {
       productMap: plainProductMap,
-      negativeIncomeProductMap: plainNegativeIncomeProductMap
+      negativeIncomeProductMap: plainNegativeIncomeProductMap,
     };
-
   } catch (e) {
     Logger.log(`!!! CRITICAL ERROR in getProductMarginData: ${e.message}`);
     Logger.log(`Stack trace: ${e.stack}`);
@@ -160,7 +235,8 @@ function getProductMarginData() {
 function getClientAnalysisData() {
   try {
     // 1. Call the backend service to get the data
-    const { clientMap, negativeIncomeClientMap } = ReaderService.readClientMarginDb();
+    const { clientMap, negativeIncomeClientMap } =
+      ReaderService.readClientMarginDb();
 
     // 2. Convert the class instances to plain objects for transport
     const plainClientMap = {};
@@ -170,15 +246,15 @@ function getClientAnalysisData() {
 
     const plainNegativeIncomeClientMap = {};
     for (const key in negativeIncomeClientMap) {
-      plainNegativeIncomeClientMap[key] = negativeIncomeClientMap[key].toPlainObject();
+      plainNegativeIncomeClientMap[key] =
+        negativeIncomeClientMap[key].toPlainObject();
     }
 
     // 3. Return the clean data to the frontend
     return {
       clientMap: plainClientMap,
-      negativeIncomeClientMap: plainNegativeIncomeClientMap
+      negativeIncomeClientMap: plainNegativeIncomeClientMap,
     };
-
   } catch (e) {
     Logger.log(`!!! CRITICAL ERROR in getClientAnalysisData: ${e.stack}`);
     throw new Error(`Recupero analisi clienti fallito: ${e.message}`);

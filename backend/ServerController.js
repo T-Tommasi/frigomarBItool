@@ -36,7 +36,7 @@ function validateUser() {
     };
   }
 
-  if (!ALLOWED_USERS.includes(email)) {
+  if (!AUTHORIZED_USERS.includes(email)) {
     // The user is logged in, but not on our list.
     return {
       authorized: false,

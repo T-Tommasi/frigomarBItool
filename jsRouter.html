@@ -1,413 +1,473 @@
 <script>
-  (function() {
-    'use strict';
+	(function () {
+		"use strict";
 
-    // --- STATE MANAGEMENT ---
-    const appState = {
-        page: {
-            masterData: [],
-            currentSearchTerm: '',
-            currentSort: { key: 'totalDue', direction: 'desc' }
-        },
-        modal: {
-            masterInvoiceList: [],
-            currentSearchTerm: '',
-            currentSort: { key: 'date', direction: 'desc' }
-        },
-        productAnalysis: {
-            productMap: {},
-            masterList: [],
-            negativeIncomeList: [],
-            currentSearchTerm: '',
-            currentSort: { key: 'name', direction: 'asc' },
-            selectedProductId: null
-        },
-        clientAnalysis: {
-            clientMap: {},
-            masterList: [],
-            currentSearchTerm: '',
-            currentSort: { key: 'name', direction: 'asc' },
-            selectedClientId: null
-        }
-    };
+		// --- STATE MANAGEMENT ---
+		const appState = {
+			page: {
+				masterData: [],
+				currentSearchTerm: "",
+				currentSort: { key: "totalDue", direction: "desc" },
+			},
+			modal: {
+				masterInvoiceList: [],
+				currentSearchTerm: "",
+				currentSort: { key: "date", direction: "desc" },
+			},
+			productAnalysis: {
+				productMap: {},
+				masterList: [],
+				negativeIncomeList: [],
+				currentSearchTerm: "",
+				currentSort: { key: "name", direction: "asc" },
+				selectedProductId: null,
+			},
+			clientAnalysis: {
+				clientMap: {},
+				masterList: [],
+				currentSearchTerm: "",
+				currentSort: { key: "name", direction: "asc" },
+				selectedClientId: null,
+			},
+		};
 
-    // --- CACHED DOM REFERENCES ---
-    const domCache = {
-        contentArea: null,
-        pageTitle: null,
-        navMenu: null,
-        detailsModal: null,
-        invoiceSearchInput: null,
-        analyticsSearchInput: null,
-        clientAnalyticsSearchInput: null, // Added for completeness
-        modalSearchInput: null,
+		// --- CACHED DOM REFERENCES ---
+		const domCache = {
+			contentArea: null,
+			pageTitle: null,
+			navMenu: null,
+			detailsModal: null,
+			invoiceSearchInput: null,
+			analyticsSearchInput: null,
+			clientAnalyticsSearchInput: null, // Added for completeness
+			modalSearchInput: null,
 
-        init() {
-            this.contentArea = document.getElementById('app-content');
-            this.pageTitle = document.getElementById('page-title');
-            this.navMenu = document.querySelector('.nav-menu');
-            this.detailsModal = document.getElementById('details-modal');
-        },
+			init() {
+				this.contentArea = document.getElementById("app-content");
+				this.pageTitle = document.getElementById("page-title");
+				this.navMenu = document.querySelector(".nav-menu");
+				this.detailsModal = document.getElementById("details-modal");
+			},
 
-        // Cache dynamic elements when they're created
-        cachePageElements() {
-            this.invoiceSearchInput = document.getElementById('invoice-search-input');
-            this.analyticsSearchInput = document.getElementById('analytics-search-input');
-            this.clientAnalyticsSearchInput = document.getElementById('client-analytics-search-input');
-        },
+			// Cache dynamic elements when they're created
+			cachePageElements() {
+				this.invoiceSearchInput = document.getElementById(
+					"invoice-search-input"
+				);
+				this.analyticsSearchInput = document.getElementById(
+					"analytics-search-input"
+				);
+				this.clientAnalyticsSearchInput = document.getElementById(
+					"client-analytics-search-input"
+				);
+			},
 
-        cacheModalElements() {
-            this.modalSearchInput = document.getElementById('modal-search-input');
-        }
-    };
+			cacheModalElements() {
+				this.modalSearchInput = document.getElementById("modal-search-input");
+			},
+		};
 
-    // --- FORMATTERS ---
-    const formatters = {
-        currency: new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }),
-        date: (dateString) => new Date(dateString).toLocaleDateString('it-IT', {
-            day: '2-digit', month: '2-digit', year: 'numeric'
-        })
-    };
+		// --- FORMATTERS ---
+		const formatters = {
+			currency: new Intl.NumberFormat("it-IT", {
+				style: "currency",
+				currency: "EUR",
+			}),
+			date: (dateString) =>
+				new Date(dateString).toLocaleDateString("it-IT", {
+					day: "2-digit",
+					month: "2-digit",
+					year: "numeric",
+				}),
+		};
 
-    // --- DATA FILTERING ---
-    function filterInvoiceData(data, searchTerm) {
-        if (!searchTerm?.trim()) return data;
-        const term = searchTerm.toLowerCase();
-        return data.filter(client =>
-            client.clientName.toLowerCase().includes(term) ||
-            String(client.clientId).includes(term)
-        );
-    }
+		// --- DATA FILTERING ---
+		function filterInvoiceData(data, searchTerm) {
+			if (!searchTerm?.trim()) return data;
+			const term = searchTerm.toLowerCase();
+			return data.filter(
+				(client) =>
+					client.clientName.toLowerCase().includes(term) ||
+					String(client.clientId).includes(term)
+			);
+		}
 
-    function filterAnalyticsData(data, searchTerm) {
-        if (!searchTerm?.trim()) return data;
-        const term = searchTerm.toLowerCase();
-        return data.filter(product =>
-            product.name.toLowerCase().includes(term) ||
-            product.uuid.toLowerCase().includes(term)
-        );
-    }
+		function filterAnalyticsData(data, searchTerm) {
+			if (!searchTerm?.trim()) return data;
+			const term = searchTerm.toLowerCase();
+			return data.filter(
+				(product) =>
+					product.name.toLowerCase().includes(term) ||
+					product.uuid.toLowerCase().includes(term)
+			);
+		}
 
-    function filterClientAnalysisData(data, searchTerm) {
-        if (!searchTerm?.trim()) return data;
-        const term = searchTerm.toLowerCase();
-        return data.filter(client =>
-            client.name.toLowerCase().includes(term) ||
-            client.uuid.toLowerCase().includes(term)
-        );
-    }
+		function filterClientAnalysisData(data, searchTerm) {
+			if (!searchTerm?.trim()) return data;
+			const term = searchTerm.toLowerCase();
+			return data.filter(
+				(client) =>
+					client.name.toLowerCase().includes(term) ||
+					client.uuid.toLowerCase().includes(term)
+			);
+		}
 
-    function filterModalData(data, searchTerm) {
-        if (!searchTerm?.trim()) return data;
-        const term = searchTerm.toLowerCase();
-        return data.filter(invoice =>
-            invoice.uuid.toLowerCase().includes(term) ||
-            invoice.status.toLowerCase().includes(term)
-        );
-    }
+		function filterModalData(data, searchTerm) {
+			if (!searchTerm?.trim()) return data;
+			const term = searchTerm.toLowerCase();
+			return data.filter(
+				(invoice) =>
+					invoice.uuid.toLowerCase().includes(term) ||
+					invoice.status.toLowerCase().includes(term)
+			);
+		}
 
-    // --- DATA SORTING ---
-    function sortData(data, key, direction) {
-        // Create a shallow copy to avoid mutating the original array passed to it.
-        return [...data].sort((a, b) => {
-            const [valA, valB] = [a[key], b[key]];
-            const comparison = typeof valA === 'number' && typeof valB === 'number' 
-                ? valA - valB 
-                : String(valA).localeCompare(String(valB));
-            return direction === 'desc' ? -comparison : comparison;
-        });
-    }
+		// --- DATA SORTING ---
+		function sortData(data, key, direction) {
+			// Create a shallow copy to avoid mutating the original array passed to it.
+			return [...data].sort((a, b) => {
+				const [valA, valB] = [a[key], b[key]];
+				const comparison =
+					typeof valA === "number" && typeof valB === "number"
+						? valA - valB
+						: String(valA).localeCompare(String(valB));
+				return direction === "desc" ? -comparison : comparison;
+			});
+		}
 
-    // --- DATA PROCESSING & RENDERING PIPELINES ---
-    function processAndRenderInvoices() {
-        const { masterData, currentSearchTerm, currentSort } = appState.page;
-        const filtered = filterInvoiceData(masterData, currentSearchTerm);
-        const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-        updateInvoicesTable(sorted);
-    }
+		// --- DATA PROCESSING & RENDERING PIPELINES ---
+		function processAndRenderInvoices() {
+			const { masterData, currentSearchTerm, currentSort } = appState.page;
+			const filtered = filterInvoiceData(masterData, currentSearchTerm);
+			const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+			updateInvoicesTable(sorted);
+		}
 
-    function processAndRenderProductAnalysis() {
-        const { masterList, currentSearchTerm, currentSort } = appState.productAnalysis;
-        const filtered = filterAnalyticsData(masterList, currentSearchTerm);
-        const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-        renderAnalyticsMasterTable(sorted);
-    }
+		function processAndRenderProductAnalysis() {
+			const { masterList, currentSearchTerm, currentSort } =
+				appState.productAnalysis;
+			const filtered = filterAnalyticsData(masterList, currentSearchTerm);
+			const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+			renderAnalyticsMasterTable(sorted);
+		}
 
-    function processAndRenderClientAnalysis() {
-        const { masterList, currentSearchTerm, currentSort } = appState.clientAnalysis;
-        const filtered = filterClientAnalysisData(masterList, currentSearchTerm);
-        const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-        renderClientAnalysisMasterTable(sorted);
-    }
+		function processAndRenderClientAnalysis() {
+			const { masterList, currentSearchTerm, currentSort } =
+				appState.clientAnalysis;
+			const filtered = filterClientAnalysisData(masterList, currentSearchTerm);
+			const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+			renderClientAnalysisMasterTable(sorted);
+		}
 
-    function processAndRenderModal() {
-        const { masterInvoiceList, currentSearchTerm, currentSort } = appState.modal;
-        const filtered = filterModalData(masterInvoiceList, currentSearchTerm);
-        const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-        renderModalInvoiceTable(sorted);
-    }
+		function processAndRenderModal() {
+			const { masterInvoiceList, currentSearchTerm, currentSort } =
+				appState.modal;
+			const filtered = filterModalData(masterInvoiceList, currentSearchTerm);
+			const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+			renderModalInvoiceTable(sorted);
+		}
 
+		// --- EVENT HANDLERS ---
+		function handleNavClick(e) {
+			const link = e.target.closest(".nav-link");
+			if (link?.dataset.page) {
+				e.preventDefault();
+				updateActiveLink(link);
+				navigateTo(link.dataset.page);
+				return;
+			}
 
-    // --- EVENT HANDLERS ---
-    function handleNavClick(e) {
-        const link = e.target.closest('.nav-link');
-        if (link?.dataset.page) {
-            e.preventDefault();
-            updateActiveLink(link);
-            navigateTo(link.dataset.page);
-            return;
-        }
+			const toggle = e.target.closest(".nav-submenu-toggle");
+			if (toggle?.dataset.submenu) {
+				const submenu = document.getElementById(toggle.dataset.submenu);
+				if (submenu) {
+					submenu.classList.toggle("open");
+					toggle.classList.toggle("active");
+				}
+			}
+		}
 
-        const toggle = e.target.closest('.nav-submenu-toggle');
-        if (toggle?.dataset.submenu) {
-            const submenu = document.getElementById(toggle.dataset.submenu);
-            if (submenu) {
-                submenu.classList.toggle('open');
-                toggle.classList.toggle('active');
-            }
-        }
-    }
+		function handleContentClick(e) {
+			// Invoice Page Clicks
+			const invoiceSortHeader = e.target.closest("#invoices-table th.sortable");
+			const detailsButton = e.target.closest(".btn-details");
 
-    function handleContentClick(e) {
-        // Invoice Page Clicks
-        const invoiceSortHeader = e.target.closest('#invoices-table th.sortable');
-        const detailsButton = e.target.closest('.btn-details');
-        
-        // Product Analysis Page Clicks
-        const productSortHeader = e.target.closest('#product-master-list th.sortable');
-        const productRow = e.target.closest('#analytics-master-body tr[data-product-id]');
+			// Product Analysis Page Clicks
+			const productSortHeader = e.target.closest(
+				"#product-master-list th.sortable"
+			);
+			const productRow = e.target.closest(
+				"#analytics-master-body tr[data-product-id]"
+			);
 
-        // Client Analysis Page Clicks
-        const clientSortHeader = e.target.closest('#client-master-list th.sortable');
-        const clientRow = e.target.closest('#client-analytics-master-body tr[data-client-id]');
+			// Client Analysis Page Clicks
+			const clientSortHeader = e.target.closest(
+				"#client-master-list th.sortable"
+			);
+			const clientRow = e.target.closest(
+				"#client-analytics-master-body tr[data-client-id]"
+			);
 
-        if (invoiceSortHeader?.dataset.sortKey) {
-            handleSort(appState.page, invoiceSortHeader.dataset.sortKey);
-            processAndRenderInvoices();
-        } else if (detailsButton?.dataset.clientId) {
-            openDetailsModal(detailsButton.dataset.clientId);
-        } else if (productSortHeader?.dataset.sortKey) {
-            handleSort(appState.productAnalysis, productSortHeader.dataset.sortKey);
-            processAndRenderProductAnalysis();
-        } else if (productRow) {
-            handleAnalyticsRowSelection(productRow);
-        } else if (clientSortHeader?.dataset.sortKey) {
-            handleSort(appState.clientAnalysis, clientSortHeader.dataset.sortKey);
-            processAndRenderClientAnalysis();
-        } else if (clientRow) {
-            handleClientRowSelection(clientRow);
-        }
-    }
-    
-    function handleContentInput(e) {
-        const targetId = e.target.id;
-        if (targetId === 'invoice-search-input') {
-            appState.page.currentSearchTerm = e.target.value;
-            processAndRenderInvoices();
-        } else if (targetId === 'analytics-search-input') {
-            appState.productAnalysis.currentSearchTerm = e.target.value;
-            processAndRenderProductAnalysis();
-        } else if (targetId === 'client-analytics-search-input') {
-            appState.clientAnalysis.currentSearchTerm = e.target.value;
-            processAndRenderClientAnalysis();
-        }
-    }
+			if (invoiceSortHeader?.dataset.sortKey) {
+				handleSort(appState.page, invoiceSortHeader.dataset.sortKey);
+				processAndRenderInvoices();
+			} else if (detailsButton?.dataset.clientId) {
+				openDetailsModal(detailsButton.dataset.clientId);
+			} else if (productSortHeader?.dataset.sortKey) {
+				handleSort(appState.productAnalysis, productSortHeader.dataset.sortKey);
+				processAndRenderProductAnalysis();
+			} else if (productRow) {
+				handleAnalyticsRowSelection(productRow);
+			} else if (clientSortHeader?.dataset.sortKey) {
+				handleSort(appState.clientAnalysis, clientSortHeader.dataset.sortKey);
+				processAndRenderClientAnalysis();
+			} else if (clientRow) {
+				handleClientRowSelection(clientRow);
+			}
+		}
 
-    function handleModalClick(e) {
-        if (e.target.closest('#modal-close-btn') || e.target.closest('#modal-footer-close-btn')) {
-            closeDetailsModal();
-        }
-        
-        const sortableHeader = e.target.closest('th.sortable');
-        if (sortableHeader?.dataset.sortKey) {
-            handleSort(appState.modal, sortableHeader.dataset.sortKey);
-            processAndRenderModal();
-        }
-    }
+		function handleContentInput(e) {
+			const targetId = e.target.id;
+			if (targetId === "invoice-search-input") {
+				appState.page.currentSearchTerm = e.target.value;
+				processAndRenderInvoices();
+			} else if (targetId === "analytics-search-input") {
+				appState.productAnalysis.currentSearchTerm = e.target.value;
+				processAndRenderProductAnalysis();
+			} else if (targetId === "client-analytics-search-input") {
+				appState.clientAnalysis.currentSearchTerm = e.target.value;
+				processAndRenderClientAnalysis();
+			}
+		}
 
-    function handleModalInput(e) {
-        if (e.target.id === 'modal-search-input') {
-            appState.modal.currentSearchTerm = e.target.value;
-            processAndRenderModal();
-        }
-    }
-    
-    function handleSort(stateObj, sortKey) {
-        if (stateObj.currentSort.key === sortKey) {
-            stateObj.currentSort.direction = stateObj.currentSort.direction === 'asc' ? 'desc' : 'asc';
-        } else {
-            stateObj.currentSort.key = sortKey;
-            // Default sort direction based on key type; can be customized
-            stateObj.currentSort.direction = ['name', 'clientName'].includes(sortKey) ? 'asc' : 'desc';
-        }
-    }
+		function handleModalClick(e) {
+			if (
+				e.target.closest("#modal-close-btn") ||
+				e.target.closest("#modal-footer-close-btn")
+			) {
+				closeDetailsModal();
+			}
 
-    function handleAnalyticsRowSelection(row) {
-        const productId = row.dataset.productId;
-        const previouslySelected = document.querySelector('#analytics-master-body .selected-row');
-        
-        if (previouslySelected) previouslySelected.classList.remove('selected-row');
-        
-        if (previouslySelected !== row) {
-            row.classList.add('selected-row');
-            appState.productAnalysis.selectedProductId = productId;
-            renderAnalyticsDetailView(productId);
-        } else {
-            appState.productAnalysis.selectedProductId = null;
-            renderAnalyticsDetailView(null); // Clear detail view on re-click
-        }
-    }
-    
-    function handleClientRowSelection(row) {
-        const clientId = row.dataset.clientId;
-        const previouslySelected = document.querySelector('#client-analytics-master-body .selected-row');
-        
-        if (previouslySelected) previouslySelected.classList.remove('selected-row');
-        
-        if (previouslySelected !== row) {
-            row.classList.add('selected-row');
-            appState.clientAnalysis.selectedClientId = clientId;
-            renderClientAnalysisDetailView(clientId);
-        } else {
-            appState.clientAnalysis.selectedClientId = null;
-            renderClientAnalysisDetailView(null); // Clear the detail view
-        }
-    }
+			const sortableHeader = e.target.closest("th.sortable");
+			if (sortableHeader?.dataset.sortKey) {
+				handleSort(appState.modal, sortableHeader.dataset.sortKey);
+				processAndRenderModal();
+			}
+		}
 
-    // --- NAVIGATION ---
-    function navigateTo(page) {
-        domCache.contentArea.innerHTML = '<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento vista...</div>';
-        
-        const pageConfig = {
-            invoices: { title: 'Scadenzario Clienti', loadView: 'loadInvoicesView', successHandler: loadInvoicesPageAndData },
-            productAnalysis: { title: 'Analisi Margini Prodotti', loadView: 'loadProductAnalysisView', successHandler: loadProductAnalysisPageAndData },
-            clientAnalysis: { title: 'Analisi Margini Cliente', loadView: 'loadClientAnalysisView', successHandler: loadClientAnalysisPageAndData }
-        };
+		function handleModalInput(e) {
+			if (e.target.id === "modal-search-input") {
+				appState.modal.currentSearchTerm = e.target.value;
+				processAndRenderModal();
+			}
+		}
 
-        const config = pageConfig[page];
-        if (config) {
-            domCache.pageTitle.textContent = config.title;
-            google.script.run
-                .withSuccessHandler(config.successHandler)
-                .withFailureHandler(showError)
-                [config.loadView]();
-        } else {
-            domCache.pageTitle.textContent = 'Home';
-            showError({ message: 'Pagina non trovata o in costruzione.' });
-        }
-    }
+		function handleSort(stateObj, sortKey) {
+			if (stateObj.currentSort.key === sortKey) {
+				stateObj.currentSort.direction =
+					stateObj.currentSort.direction === "asc" ? "desc" : "asc";
+			} else {
+				stateObj.currentSort.key = sortKey;
+				// Default sort direction based on key type; can be customized
+				stateObj.currentSort.direction = ["name", "clientName"].includes(
+					sortKey
+				)
+					? "asc"
+					: "desc";
+			}
+		}
 
-    // --- PAGE & DATA INITIALIZATION ---
+		function handleAnalyticsRowSelection(row) {
+			const productId = row.dataset.productId;
+			const previouslySelected = document.querySelector(
+				"#analytics-master-body .selected-row"
+			);
 
+			if (previouslySelected)
+				previouslySelected.classList.remove("selected-row");
 
-    function loadInvoicesPageAndData(html) {
-        domCache.contentArea.innerHTML = html;
-        domCache.cachePageElements();
-        google.script.run
-            .withSuccessHandler(initializeInvoiceData)
-            .withFailureHandler(onDataLoadError)
-            .getClientSummaryData();
-    }
+			if (previouslySelected !== row) {
+				row.classList.add("selected-row");
+				appState.productAnalysis.selectedProductId = productId;
+				renderAnalyticsDetailView(productId);
+			} else {
+				appState.productAnalysis.selectedProductId = null;
+				renderAnalyticsDetailView(null); // Clear detail view on re-click
+			}
+		}
 
-    function initializeInvoiceData(summaryData) {
-        appState.page.masterData = summaryData || [];
-        processAndRenderInvoices();
-    }
-    
-    function loadProductAnalysisPageAndData(html) {
-        domCache.contentArea.innerHTML = html;
-        domCache.cachePageElements();
-        google.script.run
-            .withSuccessHandler(initializeProductAnalysisData)
-            .withFailureHandler(showError)
-            .getProductMarginData();
-    }
+		function handleClientRowSelection(row) {
+			const clientId = row.dataset.clientId;
+			const previouslySelected = document.querySelector(
+				"#client-analytics-master-body .selected-row"
+			);
 
-    function initializeProductAnalysisData(dataPayload) {
-        if (!dataPayload?.productMap) {
-            showError({ message: 'Nessun dato prodotto ricevuto dal server.' });
-            return;
-        }
-        
-        const state = appState.productAnalysis;
-        state.productMap = dataPayload.productMap || {};
-        state.masterList = Object.values(state.productMap);
-        state.negativeIncomeList = Object.values(dataPayload.negativeIncomeProductMap || {});
-        state.currentSearchTerm = '';
-        state.currentSort = { key: 'name', direction: 'asc' };
-        
-        processAndRenderProductAnalysis();
-        renderAnalyticsDetailView(null); // Clear detail view on new data load
-    }
-    
-    function loadClientAnalysisPageAndData(html) {
-        domCache.contentArea.innerHTML = html;
-        domCache.cachePageElements(); // Ensure new inputs are cached
-        google.script.run
-            .withSuccessHandler(initializeClientAnalysisData)
-            .withFailureHandler(showError)
-            .getClientAnalysisData();
-    }
+			if (previouslySelected)
+				previouslySelected.classList.remove("selected-row");
 
-    function initializeClientAnalysisData(dataPayload) {
-        if (!dataPayload?.clientMap) {
-            showError({ message: 'Nessun dato cliente ricevuto dal server.' });
-            return;
-        }
-        const state = appState.clientAnalysis;
-        state.clientMap = dataPayload.clientMap || {};
-        state.masterList = Object.values(state.clientMap);
-        state.currentSearchTerm = '';
-        state.currentSort = { key: 'name', direction: 'asc' };
-        
-        processAndRenderClientAnalysis();
-        renderClientAnalysisDetailView(null); // Clear detail view
-    }
+			if (previouslySelected !== row) {
+				row.classList.add("selected-row");
+				appState.clientAnalysis.selectedClientId = clientId;
+				renderClientAnalysisDetailView(clientId);
+			} else {
+				appState.clientAnalysis.selectedClientId = null;
+				renderClientAnalysisDetailView(null); // Clear the detail view
+			}
+		}
 
-    // --- MODAL MANAGEMENT ---
-    function openDetailsModal(clientId) {
-        if (!domCache.detailsModal) return;
-        
-        const modalTitle = document.getElementById('modal-title');
-        const modalBody = document.getElementById('modal-body');
-        const searchContainer = document.getElementById('modal-search-container');
-        
-        searchContainer.style.display = 'flex';
-        modalTitle.textContent = `Dettagli Cliente: ${clientId}`;
-        modalBody.innerHTML = '<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento dettagli...</div>';
-        
-        domCache.detailsModal.showModal();
-        google.script.run
-            .withSuccessHandler(populateDetailsModal)
-            .withFailureHandler(renderModalError)
-            .getClientDetails(clientId);
-    }
+		// --- NAVIGATION ---
+		function navigateTo(page) {
+			domCache.contentArea.innerHTML =
+				'<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento vista...</div>';
 
-    function closeDetailsModal() {
-        if (domCache.detailsModal) {
-            const searchContainer = document.getElementById('modal-search-container');
-            searchContainer.style.display = 'none';
-            domCache.detailsModal.close();
-            // Reset modal state
-            appState.modal.masterInvoiceList = [];
-            appState.modal.currentSearchTerm = '';
-        }
-    }
+			const pageConfig = {
+				invoices: {
+					title: "Scadenzario Clienti",
+					loadView: "loadInvoicesView",
+					successHandler: loadInvoicesPageAndData,
+				},
+				productAnalysis: {
+					title: "Analisi Margini Prodotti",
+					loadView: "loadProductAnalysisView",
+					successHandler: loadProductAnalysisPageAndData,
+				},
+				clientAnalysis: {
+					title: "Analisi Margini Cliente",
+					loadView: "loadClientAnalysisView",
+					successHandler: loadClientAnalysisPageAndData,
+				},
+			};
 
-    function populateDetailsModal(clientObject) {
-        const modalTitle = document.getElementById('modal-title');
-        const modalBody = document.getElementById('modal-body');
-        
-        if (!modalBody || !clientObject) {
-            renderModalError({ message: 'Impossibile caricare i dati del cliente.' });
-            return;
-        }
-        
-        modalTitle.textContent = `Dettagli: ${clientObject.name}`;
-        appState.modal.masterInvoiceList = clientObject.invoices || [];
-        appState.modal.currentSearchTerm = '';
-        
-        modalBody.innerHTML = `
+			const config = pageConfig[page];
+			if (config) {
+				domCache.pageTitle.textContent = config.title;
+				google.script.run
+					.withSuccessHandler(config.successHandler)
+					.withFailureHandler(showError)
+					[config.loadView]();
+			} else {
+				domCache.pageTitle.textContent = "Home";
+				showError({ message: "Pagina non trovata o in costruzione." });
+			}
+		}
+
+		// --- PAGE & DATA INITIALIZATION ---
+
+		function loadInvoicesPageAndData(html) {
+			domCache.contentArea.innerHTML = html;
+			domCache.cachePageElements();
+			google.script.run
+				.withSuccessHandler(initializeInvoiceData)
+				.withFailureHandler(onDataLoadError)
+				.getClientSummaryData();
+		}
+
+		function initializeInvoiceData(summaryData) {
+			appState.page.masterData = summaryData || [];
+			processAndRenderInvoices();
+		}
+
+		function loadProductAnalysisPageAndData(html) {
+			domCache.contentArea.innerHTML = html;
+			domCache.cachePageElements();
+			google.script.run
+				.withSuccessHandler(initializeProductAnalysisData)
+				.withFailureHandler(showError)
+				.getProductMarginData();
+		}
+
+		function initializeProductAnalysisData(dataPayload) {
+			if (!dataPayload?.productMap) {
+				showError({ message: "Nessun dato prodotto ricevuto dal server." });
+				return;
+			}
+
+			const state = appState.productAnalysis;
+			state.productMap = dataPayload.productMap || {};
+			state.masterList = Object.values(state.productMap);
+			state.negativeIncomeList = Object.values(
+				dataPayload.negativeIncomeProductMap || {}
+			);
+			state.currentSearchTerm = "";
+			state.currentSort = { key: "name", direction: "asc" };
+
+			processAndRenderProductAnalysis();
+			renderAnalyticsDetailView(null); // Clear detail view on new data load
+		}
+
+		function loadClientAnalysisPageAndData(html) {
+			domCache.contentArea.innerHTML = html;
+			domCache.cachePageElements(); // Ensure new inputs are cached
+			google.script.run
+				.withSuccessHandler(initializeClientAnalysisData)
+				.withFailureHandler(showError)
+				.getClientAnalysisData();
+		}
+
+		function initializeClientAnalysisData(dataPayload) {
+			if (!dataPayload?.clientMap) {
+				showError({ message: "Nessun dato cliente ricevuto dal server." });
+				return;
+			}
+			const state = appState.clientAnalysis;
+			state.clientMap = dataPayload.clientMap || {};
+			state.masterList = Object.values(state.clientMap);
+			state.currentSearchTerm = "";
+			state.currentSort = { key: "name", direction: "asc" };
+
+			processAndRenderClientAnalysis();
+			renderClientAnalysisDetailView(null); // Clear detail view
+		}
+
+		// --- MODAL MANAGEMENT ---
+		function openDetailsModal(clientId) {
+			if (!domCache.detailsModal) return;
+
+			const modalTitle = document.getElementById("modal-title");
+			const modalBody = document.getElementById("modal-body");
+			const searchContainer = document.getElementById("modal-search-container");
+
+			searchContainer.style.display = "flex";
+			modalTitle.textContent = `Dettagli Cliente: ${clientId}`;
+			modalBody.innerHTML =
+				'<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento dettagli...</div>';
+
+			domCache.detailsModal.showModal();
+			google.script.run
+				.withSuccessHandler(populateDetailsModal)
+				.withFailureHandler(renderModalError)
+				.getClientDetails(clientId);
+		}
+
+		function closeDetailsModal() {
+			if (domCache.detailsModal) {
+				const searchContainer = document.getElementById(
+					"modal-search-container"
+				);
+				searchContainer.style.display = "none";
+				domCache.detailsModal.close();
+				// Reset modal state
+				appState.modal.masterInvoiceList = [];
+				appState.modal.currentSearchTerm = "";
+			}
+		}
+
+		function populateDetailsModal(clientObject) {
+			const modalTitle = document.getElementById("modal-title");
+			const modalBody = document.getElementById("modal-body");
+
+			if (!modalBody || !clientObject) {
+				renderModalError({
+					message: "Impossibile caricare i dati del cliente.",
+				});
+				return;
+			}
+
+			modalTitle.textContent = `Dettagli: ${clientObject.name}`;
+			appState.modal.masterInvoiceList = clientObject.invoices || [];
+			appState.modal.currentSearchTerm = "";
+
+			modalBody.innerHTML = `
         <div class="table-container">
           <table class="data-table">
             <thead>
@@ -425,32 +485,32 @@
             <tbody id="modal-invoice-table-body"></tbody>
           </table>
         </div>`;
-        
-        domCache.cacheModalElements();
-        processAndRenderModal();
-    }
 
-    // --- RENDERING ---
-    function renderModalInvoiceTable(dataToRender) {
-        const tableBody = document.getElementById('modal-invoice-table-body');
-        if (!tableBody) return;
-        
-        if (!dataToRender || dataToRender.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 3rem;">Nessuna fattura corrispondente alla ricerca.</td></tr>`;
-            return;
-        }
-        
-        const fragment = document.createDocumentFragment();
-        dataToRender.forEach(inv => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
+			domCache.cacheModalElements();
+			processAndRenderModal();
+		}
+
+		// --- RENDERING ---
+		function renderModalInvoiceTable(dataToRender) {
+			const tableBody = document.getElementById("modal-invoice-table-body");
+			if (!tableBody) return;
+
+			if (!dataToRender || dataToRender.length === 0) {
+				tableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 3rem;">Nessuna fattura corrispondente alla ricerca.</td></tr>`;
+				return;
+			}
+
+			const fragment = document.createDocumentFragment();
+			dataToRender.forEach((inv) => {
+				const row = document.createElement("tr");
+				row.innerHTML = `
                 <td>${inv.uuid}</td>
                 <td class="text-right">${formatters.currency.format(inv.amount)}</td>
                 <td class="text-right">${formatters.currency.format(inv.paid)}</td>
                 <td>${inv.status}</td>
                 <td>${formatters.date(inv.date)}</td>
                 <td>${formatters.date(inv.dueDate)}</td>
-                <td>${inv.invoiceNote || ''}</td>
+                <td>${inv.invoiceNote || ""}</td>
                 <td>
                   <div class="invoice-actions">
                     <button class="btn btn-secondary" disabled>Nota</button>
@@ -458,35 +518,38 @@
                   </div>
                 </td>
             `;
-            fragment.appendChild(row);
-        });
-        
-        tableBody.innerHTML = '';
-        tableBody.appendChild(fragment);
-        updateSortIndicators('#details-modal .data-table', appState.modal.currentSort);
-    }
+				fragment.appendChild(row);
+			});
 
-    function updateInvoicesTable(dataToRender) {
-        const tableBody = document.getElementById('invoices-table-body');
-        if (!tableBody) return;
-        
-        // Header is now part of the static HTML template loaded by `loadInvoicesView`
-        // So we just update sort indicators on the existing header.
-        
-        if (!dataToRender?.length) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun dato corrispondente alla ricerca.</td></tr>`;
-            return;
-        }
-        
-        const fragment = document.createDocumentFragment();
-        dataToRender.forEach(client => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
+			tableBody.innerHTML = "";
+			tableBody.appendChild(fragment);
+			updateSortIndicators(
+				"#details-modal .data-table",
+				appState.modal.currentSort
+			);
+		}
+
+		function updateInvoicesTable(dataToRender) {
+			const tableBody = document.getElementById("invoices-table-body");
+			if (!tableBody) return;
+
+			// Header is now part of the static HTML template loaded by `loadInvoicesView`
+			// So we just update sort indicators on the existing header.
+
+			if (!dataToRender?.length) {
+				tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun dato corrispondente alla ricerca.</td></tr>`;
+				return;
+			}
+
+			const fragment = document.createDocumentFragment();
+			dataToRender.forEach((client) => {
+				const row = document.createElement("tr");
+				row.innerHTML = `
                 <td>${client.clientName}</td>
                 <td>${client.clientId}</td>
                 <td class="text-center">${client.invoiceCount}</td>
                 <td class="text-right">${formatters.currency.format(client.totalDue)}</td>
-                <td class="text-right" style="color: ${client.totalOverdue > 0 ? 'var(--danger-color)' : 'inherit'};">
+                <td class="text-right" style="color: ${client.totalOverdue > 0 ? "var(--danger-color)" : "inherit"};">
                     ${formatters.currency.format(client.totalOverdue)}
                 </td>
                 <td class="text-right" style="color: var(--success-color);">
@@ -499,31 +562,31 @@
                   </div>
                 </td>
             `;
-            fragment.appendChild(row);
-        });
-        
-        tableBody.innerHTML = '';
-        tableBody.appendChild(fragment);
-        updateSortIndicators('#invoices-table', appState.page.currentSort);
-    }
-    
-    function renderAnalyticsMasterTable(dataToRender) {
-        const tableBody = document.getElementById('analytics-master-body');
-        if (!tableBody) return;
-        
-        if (!dataToRender || dataToRender.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun prodotto trovato.</td></tr>`;
-            return;
-        }
-        
-        const fragment = document.createDocumentFragment();
-        dataToRender.forEach(product => {
-            const percentageClass = getPercentageClass(product.percentageIncome);
-            const row = document.createElement('tr');
-            row.dataset.productId = product.uuid || 'N/A';
-            row.innerHTML = `
-                <td>${product.uuid || 'N/A'}</td>
-                <td>${product.name || 'Nome non disponibile'}</td>
+				fragment.appendChild(row);
+			});
+
+			tableBody.innerHTML = "";
+			tableBody.appendChild(fragment);
+			updateSortIndicators("#invoices-table", appState.page.currentSort);
+		}
+
+		function renderAnalyticsMasterTable(dataToRender) {
+			const tableBody = document.getElementById("analytics-master-body");
+			if (!tableBody) return;
+
+			if (!dataToRender || dataToRender.length === 0) {
+				tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun prodotto trovato.</td></tr>`;
+				return;
+			}
+
+			const fragment = document.createDocumentFragment();
+			dataToRender.forEach((product) => {
+				const percentageClass = getPercentageClass(product.percentageIncome);
+				const row = document.createElement("tr");
+				row.dataset.productId = product.uuid || "N/A";
+				row.innerHTML = `
+                <td>${product.uuid || "N/A"}</td>
+                <td>${product.name || "Nome non disponibile"}</td>
                 <td class="text-center">${product.totalSold || 0}</td>
                 <td>
                     <div class="cost-sale-cell">
@@ -543,47 +606,56 @@
                     </div>
                 </td>
             `;
-            fragment.appendChild(row);
-        });
-        
-        tableBody.innerHTML = '';
-        tableBody.appendChild(fragment);
-        updateSortIndicators('#product-master-list', appState.productAnalysis.currentSort);
-    }
+				fragment.appendChild(row);
+			});
 
-    function renderAnalyticsDetailView(productId) {
-        const detailBody = document.getElementById('analytics-detail-body');
-        const detailHeader = document.querySelector('#product-detail-view .content-card-header p');
-        if (!detailBody || !detailHeader) return;
-        
-        if (!productId) {
-            detailHeader.textContent = 'Seleziona un prodotto dalla tabella a sinistra per visualizzare i dettagli.';
-            detailBody.innerHTML = '';
-            return;
-        }
-        
-        const selectedProduct = appState.productAnalysis.productMap[productId];
-        if (!selectedProduct) {
-            detailHeader.textContent = `Errore: Prodotto con ID ${productId} non trovato.`;
-            detailBody.innerHTML = '';
-            return;
-        }
-        
-        detailHeader.textContent = `Dettagli per: ${selectedProduct.name}`;
-        
-        const clients = Object.values(selectedProduct.clients);
-        if (clients.length === 0) {
-            detailBody.innerHTML = '<div style="text-align:center; padding: 2rem;">Nessun cliente associato a questo prodotto.</div>';
-            return;
-        }
-        
-        const sortedClients = clients.sort((a, b) => b.percentageIncome - a.percentageIncome);
-        const fragment = document.createDocumentFragment();
-        sortedClients.forEach(client => {
-            const percentageClass = getPercentageClass(client.percentageIncome);
-            const clientDiv = document.createElement('div');
-            clientDiv.className = 'client-list-item';
-            clientDiv.innerHTML = `
+			tableBody.innerHTML = "";
+			tableBody.appendChild(fragment);
+			updateSortIndicators(
+				"#product-master-list",
+				appState.productAnalysis.currentSort
+			);
+		}
+
+		function renderAnalyticsDetailView(productId) {
+			const detailBody = document.getElementById("analytics-detail-body");
+			const detailHeader = document.querySelector(
+				"#product-detail-view .content-card-header p"
+			);
+			if (!detailBody || !detailHeader) return;
+			e;
+			if (!productId) {
+				detailHeader.textContent =
+					"Seleziona un prodotto dalla tabella a sinistra per visualizzare i dettagli.";
+				detailBody.innerHTML = "";
+				return;
+			}
+
+			const selectedProduct = appState.productAnalysis.productMap[productId];
+			if (!selectedProduct) {
+				detailHeader.textContent = `Errore: Prodotto con ID ${productId} non trovato.`;
+				detailBody.innerHTML = "";
+				return;
+			}
+
+			detailHeader.textContent = `Dettagli per: ${selectedProduct.name}`;
+
+			const clients = Object.values(selectedProduct.clients);
+			if (clients.length === 0) {
+				detailBody.innerHTML =
+					'<div style="text-align:center; padding: 2rem;">Nessun cliente associato a questo prodotto.</div>';
+				return;
+			}
+
+			const sortedClients = clients.sort(
+				(a, b) => b.percentageIncome - a.percentageIncome
+			);
+			const fragment = document.createDocumentFragment();
+			sortedClients.forEach((client) => {
+				const percentageClass = getPercentageClass(client.percentageIncome);
+				const clientDiv = document.createElement("div");
+				clientDiv.className = "client-list-item";
+				clientDiv.innerHTML = `
                 <div class="client-name" title="${client.name}">${client.name}</div>
                 <div class="client-metrics">
                     <div class="cost-sale-cell">
@@ -596,33 +668,33 @@
                     </div>
                 </div>
             `;
-            fragment.appendChild(clientDiv);
-        });
-        
-        const containerDiv = document.createElement('div');
-        containerDiv.className = 'client-detail-list';
-        containerDiv.appendChild(fragment);
-        
-        detailBody.innerHTML = '';
-        detailBody.appendChild(containerDiv);
-    }
+				fragment.appendChild(clientDiv);
+			});
 
-    function renderClientAnalysisMasterTable(dataToRender) {
-        const tableBody = document.getElementById('client-analytics-master-body');
-        if (!tableBody) return;
+			const containerDiv = document.createElement("div");
+			containerDiv.className = "client-detail-list";
+			containerDiv.appendChild(fragment);
 
-        if (!dataToRender || dataToRender.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun cliente trovato.</td></tr>`;
-            return;
-        }
+			detailBody.innerHTML = "";
+			detailBody.appendChild(containerDiv);
+		}
 
-        const fragment = document.createDocumentFragment();
-        dataToRender.forEach(client => {
-            const productsCount = Object.keys(client.productsMap).length;
-            const percentageClass = getPercentageClass(client.marginPercentage);
-            const row = document.createElement('tr');
-            row.dataset.clientId = client.uuid;
-            row.innerHTML = `
+		function renderClientAnalysisMasterTable(dataToRender) {
+			const tableBody = document.getElementById("client-analytics-master-body");
+			if (!tableBody) return;
+
+			if (!dataToRender || dataToRender.length === 0) {
+				tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun cliente trovato.</td></tr>`;
+				return;
+			}
+
+			const fragment = document.createDocumentFragment();
+			dataToRender.forEach((client) => {
+				const productsCount = Object.keys(client.productsMap).length;
+				const percentageClass = getPercentageClass(client.marginPercentage);
+				const row = document.createElement("tr");
+				row.dataset.clientId = client.uuid;
+				row.innerHTML = `
                 <td>${client.uuid}</td>
                 <td>${client.name}</td>
                 <td class="text-center">${productsCount}</td>
@@ -644,47 +716,56 @@
                     </div>
                 </td>
             `;
-            fragment.appendChild(row);
-        });
+				fragment.appendChild(row);
+			});
 
-        tableBody.innerHTML = '';
-        tableBody.appendChild(fragment);
-        updateSortIndicators('#client-master-list', appState.clientAnalysis.currentSort);
-    }
+			tableBody.innerHTML = "";
+			tableBody.appendChild(fragment);
+			updateSortIndicators(
+				"#client-master-list",
+				appState.clientAnalysis.currentSort
+			);
+		}
 
-    function renderClientAnalysisDetailView(clientId) {
-        const detailBody = document.getElementById('client-analytics-detail-body');
-        const detailHeader = document.querySelector('#client-detail-view .content-card-header p');
-        if (!detailBody || !detailHeader) return;
+		function renderClientAnalysisDetailView(clientId) {
+			const detailBody = document.getElementById(
+				"client-analytics-detail-body"
+			);
+			const detailHeader = document.querySelector(
+				"#client-detail-view .content-card-header p"
+			);
+			if (!detailBody || !detailHeader) return;
 
-        if (!clientId) {
-            detailHeader.textContent = 'Seleziona un cliente dalla tabella a sinistra per visualizzare i dettagli.';
-            detailBody.innerHTML = '';
-            return;
-        }
+			if (!clientId) {
+				detailHeader.textContent =
+					"Seleziona un cliente dalla tabella a sinistra per visualizzare i dettagli.";
+				detailBody.innerHTML = "";
+				return;
+			}
 
-        const selectedClient = appState.clientAnalysis.clientMap[clientId];
-        if (!selectedClient) {
-            detailHeader.textContent = `Errore: Cliente con ID ${clientId} non trovato.`;
-            detailBody.innerHTML = '';
-            return;
-        }
+			const selectedClient = appState.clientAnalysis.clientMap[clientId];
+			if (!selectedClient) {
+				detailHeader.textContent = `Errore: Cliente con ID ${clientId} non trovato.`;
+				detailBody.innerHTML = "";
+				return;
+			}
 
-        detailHeader.textContent = `Dettagli prodotti acquistati da: ${selectedClient.name}`;
-        
-        const products = Object.values(selectedClient.productsMap);
-        if (products.length === 0) {
-            detailBody.innerHTML = '<div style="text-align:center; padding: 2rem;">Nessun prodotto associato a questo cliente.</div>';
-            return;
-        }
+			detailHeader.textContent = `Dettagli prodotti acquistati da: ${selectedClient.name}`;
 
-        const sortedProducts = products.sort((a, b) => b.margin - a.margin);
-        const fragment = document.createDocumentFragment();
-        sortedProducts.forEach(product => {
-            const percentageClass = getPercentageClass(product.marginPercentage);
-            const productDiv = document.createElement('div');
-            productDiv.className = 'client-list-item';
-            productDiv.innerHTML = `
+			const products = Object.values(selectedClient.productsMap);
+			if (products.length === 0) {
+				detailBody.innerHTML =
+					'<div style="text-align:center; padding: 2rem;">Nessun prodotto associato a questo cliente.</div>';
+				return;
+			}
+
+			const sortedProducts = products.sort((a, b) => b.margin - a.margin);
+			const fragment = document.createDocumentFragment();
+			sortedProducts.forEach((product) => {
+				const percentageClass = getPercentageClass(product.marginPercentage);
+				const productDiv = document.createElement("div");
+				productDiv.className = "client-list-item";
+				productDiv.innerHTML = `
                 <div class="client-name" title="${product.productName}">${product.productName}</div>
                 <div class="client-metrics">
                     <div class="cost-sale-cell">
@@ -697,82 +778,88 @@
                     </div>
                 </div>
             `;
-            fragment.appendChild(productDiv);
-        });
-        
-        const containerDiv = document.createElement('div');
-        containerDiv.className = 'client-detail-list';
-        containerDiv.appendChild(fragment);
-        
-        detailBody.innerHTML = '';
-        detailBody.appendChild(containerDiv);
-    }
+				fragment.appendChild(productDiv);
+			});
 
-    // --- UTILITY FUNCTIONS ---
-    function getPercentageClass(percentage) {
-        if (percentage > 20) return 'text-success';
-        if (percentage <= 0) return 'text-danger';
-        return 'text-secondary';
-    }
+			const containerDiv = document.createElement("div");
+			containerDiv.className = "client-detail-list";
+			containerDiv.appendChild(fragment);
 
-    function updateSortIndicators(tableSelector, sortConfig) {
-        const headers = document.querySelectorAll(`${tableSelector} th.sortable`);
-        headers.forEach(th => th.classList.remove('sorted-asc', 'sorted-desc'));
-        
-        const activeHeader = document.querySelector(`${tableSelector} th[data-sort-key="${sortConfig.key}"]`);
-        if (activeHeader) {
-            activeHeader.classList.add(`sorted-${sortConfig.direction}`);
-        }
-    }
+			detailBody.innerHTML = "";
+			detailBody.appendChild(containerDiv);
+		}
 
-    function updateActiveLink(activeLink) {
-        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-        activeLink.classList.add('active');
-    }
+		// --- UTILITY FUNCTIONS ---
+		function getPercentageClass(percentage) {
+			if (percentage > 20) return "text-success";
+			if (percentage <= 0) return "text-danger";
+			return "text-secondary";
+		}
 
-    // --- ERROR HANDLING ---
-    function onDataLoadError(error) {
-        const tableBody = document.getElementById('invoices-table-body');
-        const message = error?.message || 'Si è verificato un errore sconosciuto.';
-        if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem; color: var(--danger-color);">${message}</td></tr>`;
-        } else {
-            showError(error);
-        }
-    }
+		function updateSortIndicators(tableSelector, sortConfig) {
+			const headers = document.querySelectorAll(`${tableSelector} th.sortable`);
+			headers.forEach((th) => th.classList.remove("sorted-asc", "sorted-desc"));
 
-    function renderModalError(error) {
-        const modalBody = document.getElementById('modal-body');
-        if (modalBody) {
-            modalBody.innerHTML = `
+			const activeHeader = document.querySelector(
+				`${tableSelector} th[data-sort-key="${sortConfig.key}"]`
+			);
+			if (activeHeader) {
+				activeHeader.classList.add(`sorted-${sortConfig.direction}`);
+			}
+		}
+
+		function updateActiveLink(activeLink) {
+			document
+				.querySelectorAll(".nav-link")
+				.forEach((link) => link.classList.remove("active"));
+			activeLink.classList.add("active");
+		}
+
+		// --- ERROR HANDLING ---
+		function onDataLoadError(error) {
+			const tableBody = document.getElementById("invoices-table-body");
+			const message =
+				error?.message || "Si è verificato un errore sconosciuto.";
+			if (tableBody) {
+				tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem; color: var(--danger-color);">${message}</td></tr>`;
+			} else {
+				showError(error);
+			}
+		}
+
+		function renderModalError(error) {
+			const modalBody = document.getElementById("modal-body");
+			if (modalBody) {
+				modalBody.innerHTML = `
             <div style="padding: 2rem; text-align: center; color: var(--danger-color);">
               <h4>Errore di Caricamento</h4>
-              <p>${error.message || 'Si è verificato un errore sconosciuto.'}</p>
+              <p>${error.message || "Si è verificato un errore sconosciuto."}</p>
             </div>`;
-        }
-    }
+			}
+		}
 
-    function showError(error) {
-        domCache.contentArea.innerHTML = `<div class="welcome-card"><h3>Errore</h3><p>${error.message || 'Qualcosa è andato storto.'}</p></div>`;
-    }
+		function showError(error) {
+			domCache.contentArea.innerHTML = `<div class="welcome-card"><h3>Errore</h3><p>${error.message || "Qualcosa è andato storto."}</p></div>`;
+		}
 
-    // --- INITIALIZATION ---
-    function initializeEventListeners() {
-        domCache.navMenu?.addEventListener('click', handleNavClick);
-        domCache.contentArea?.addEventListener('click', handleContentClick);
-        domCache.contentArea?.addEventListener('input', handleContentInput);
-        domCache.detailsModal?.addEventListener('click', handleModalClick);
-        domCache.detailsModal?.addEventListener('input', handleModalInput);
-    }
+		// --- INITIALIZATION ---
+		function initializeEventListeners() {
+			domCache.navMenu?.addEventListener("click", handleNavClick);
+			domCache.contentArea?.addEventListener("click", handleContentClick);
+			domCache.contentArea?.addEventListener("input", handleContentInput);
+			domCache.detailsModal?.addEventListener("click", handleModalClick);
+			domCache.detailsModal?.addEventListener("input", handleModalInput);
+		}
 
-    // --- APP STARTUP ---
-    document.addEventListener('DOMContentLoaded', () => {
-        domCache.init();
-        initializeEventListeners();
-        // Optionally, navigate to a default page on load
-        navigateTo('invoices'); 
-        document.querySelector('.nav-link[data-page="invoices"]').classList.add('active');
-    });
-
-})();
+		// --- APP STARTUP ---
+		document.addEventListener("DOMContentLoaded", () => {
+			domCache.init();
+			initializeEventListeners();
+			// Optionally, navigate to a default page on load
+			navigateTo("invoices");
+			document
+				.querySelector('.nav-link[data-page="invoices"]')
+				.classList.add("active");
+		});
+	})();
 </script>

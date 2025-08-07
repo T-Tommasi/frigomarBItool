@@ -21,5 +21,12 @@
   "bugs": {
     "url": "https://github.com/T-Tommasi/FrigomarBITool/issues"
   },
-  "homepage": "https://github.com/T-Tommasi/FrigomarBITool#readme"
+  "homepage": "https://github.com/T-Tommasi/FrigomarBITool#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@google/clasp": "^2.5.0",
+    "eslint": "^9.32.0",
+    "eslint-plugin-googleappsscript": "^1.0.5",
+    "globals": "^16.3.0"
+  }
 }

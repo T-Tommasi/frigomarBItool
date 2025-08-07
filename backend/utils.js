@@ -72,4 +72,25 @@ class Utilities {
 
     return SanitizationServices.sanitizeDate(lastUpdated);
   }
+
+  /**
+   * Retrieves values from a specified range in a sheet.
+   * @param {GoogleAppsScript.Spreadsheet.Sheet} sheetObject The sheet to read from.
+   * @param {number} startRow The starting row index (1-based).
+   * @param {number} startCol The starting column index (1-based).
+   * @param {number} [numRows=1] Optional. The number of rows to retrieve. Must be > 0.
+   * @param {number} [numCols=1] Optional. The number of columns to retrieve. Must be > 0.
+   * @returns {any[][]} A 2D array of the values from the specified range.
+   * @throws {Error} If required parameters are missing or invalid.
+   */
+  static getRangeValues(sheetObject, startRow, startCol, numRows = 1, numCols = 1) {
+    if (!sheetObject || typeof sheetObject.getRange !== 'function') {
+      throw new Error("getRangeValues requires a valid Sheet object.");
+    }
+    if (!startRow || !startCol || startRow < 1 || startCol < 1 || numRows < 1 || numCols < 1) {
+      throw new Error("Row, column, and number of rows/columns must be positive integers.");
+    }
+
+    return sheetObject.getRange(startRow, startCol, numRows, numCols).getValues();
+  }
 }

@@ -325,6 +325,8 @@ class ClientMappedProduct {
     this.extractionDate = extractionDate;
     this.margin = this.revenue - this.soldValue;
     this.marginPercentage = (this.margin / this.revenue) * 100;
+    this.hasAnomaly = false;
+    this.anomalyText = null;
   }
 
   toPlainObject() {
@@ -337,7 +339,9 @@ class ClientMappedProduct {
       revenue: this.revenue,
       extractionDate: this.extractionDate.toISOString(),
       margin: this.margin,
-      marginPercentage: this.marginPercentage
+      marginPercentage: this.marginPercentage,
+      hasAnomaly: this.hasAnomaly,
+      anomalyText: this.anomalyText,
     };
   }
 }

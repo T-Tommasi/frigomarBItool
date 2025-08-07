@@ -15,48 +15,71 @@ class ReportManager {
         }
 
         if (flagAnomalies) {
-            // 1. Create a unified, efficient lookup map for all anomalies.
-            const allAnomalies = HARDCODED_ANOMALIES();
-            const anomalyLookup = {};
-
-            // Process internal production anomalies
-            for (const [uuid, data] of Object.entries(allAnomalies.INTERNAL_PRODUCTION_NO_COST)) {
-                anomalyLookup[uuid] = {
-                    text: `Prodotto interno con costo fisso manuale di ${data.COST}€`,
-                    type: 'INTERNAL_PRODUCTION'
-                };
-            }
-
-            // Process erroneous UUID usage anomalies
-            for (const [uuid, data] of Object.entries(allAnomalies.ERRONEOUS_UUID_USED)) {
-                anomalyLookup[uuid] = {
-                    text: data.ANOMALY_TEXT,
-                    type: 'ERRONEOUS_UUID'
-                };
-            }
-
-            // Process unknown price anomalies
-            for (const [uuid, data] of Object.entries(allAnomalies.UNKNOWN_PRICE_ANOMALY)) {
-                anomalyLookup[uuid] = {
-                    text: data.ANOMALY_TEXT,
-                    type: 'UNKNOWN_PRICE'
-                };
-            }
-
-            // 2. Iterate through clients and their products to flag anomalies.
-            for (const client of Object.values(clientMarginMap)) {
-                for (const product of Object.values(client.productsMap)) {
-                    const anomaly = anomalyLookup[product.uuid];
-                    if (anomaly) {
-                        // The product object is an instance of ClientMappedProduct.
-                        // We add the anomaly flag and text to it.
-                        product.hasAnomaly = true;
-                        product.anomalyText = anomaly.text;
-                    }
-                }
-            }
+            this._flagProductAnomalies(clientMarginMap);
+        }
+        if (productDetails) {
+            this._addProductDetails(clientMarginMap);
         }
 
         return clientMarginMap;
+    }
+
+    /**
+     * @private
+     * Iterates through a client map and flags products with known anomalies.
+     * This method mutates the clientMarginMap object.
+     * @param {object} clientMarginMap - A map of ClientProductRelationAnalysis objects.
+     */
+    static _flagProductAnomalies(clientMarginMap) {
+        // 1. Create a unified, efficient lookup map for all anomalies.
+        const allAnomalies = HARDCODED_ANOMALIES();
+        const anomalyLookup = {};
+
+        // Process internal production anomalies
+        for (const [uuid, data] of Object.entries(allAnomalies.INTERNAL_PRODUCTION_NO_COST)) {
+            anomalyLookup[uuid] = {
+                text: `Prodotto interno con costo fisso manuale di ${data.COST}€`,
+                type: 'INTERNAL_PRODUCTION'
+            };
+        }
+
+        // Process erroneous UUID usage anomalies
+        for (const [uuid, data] of Object.entries(allAnomalies.ERRONEOUS_UUID_USED)) {
+            anomalyLookup[uuid] = {
+                text: data.ANOMALY_TEXT,
+                type: 'ERRONEOUS_UUID'
+            };
+        }
+
+        // Process unknown price anomalies
+        for (const [uuid, data] of Object.entries(allAnomalies.UNKNOWN_PRICE_ANOMALY)) {
+            anomalyLookup[uuid] = {
+                text: data.ANOMALY_TEXT,
+                type: 'UNKNOWN_PRICE'
+            };
+        }
+
+        // 2. Iterate through clients and their products to flag anomalies.
+        for (const client of Object.values(clientMarginMap)) {
+            for (const product of Object.values(client.productsMap)) {
+                const anomaly = anomalyLookup[product.uuid];
+                if (anomaly) {
+                    product.hasAnomaly = true;
+                    product.anomalyText = anomaly.text;
+                }
+            }
+        }
+    }
+    /**
+     * @private
+     * Iterates through a client map and displays product margin details.
+     * This method mutates the clientMarginMap object.
+     * @param {object} clientMarginMap - A map of ClientProductRelationAnalysis objects.
+     */
+    
+    _addProductDetails(clientMarginMap) {
+        // This method is not yet implemented.
+        // Placeholder for future implementation.
+        throw new Error('Product details feature is not yet implemented.');
     }
 }

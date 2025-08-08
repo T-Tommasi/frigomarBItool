@@ -78,6 +78,21 @@ class ReportManager {
      */
     
     _addProductDetails(clientMarginMap) {
+        let detailedClientMarginManp = {};
+
+        for (const client of Object.values(clientMarginMap)) {
+            detailedClientMarginMap[client.id] = {
+                products: []
+            };
+            for (const product of Object.values(client.productsMap)) {
+                detailedClientMarginMap[client.id].products.push({
+                    uuid: product.uuid,
+                    margin: product.margin,
+                    hasAnomaly: product.hasAnomaly,
+                    anomalyText: product.anomalyText
+                });
+            }
+        }
         // This method is not yet implemented.
         // Placeholder for future implementation.
         throw new Error('Product details feature is not yet implemented.');

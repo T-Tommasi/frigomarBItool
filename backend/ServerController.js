@@ -156,47 +156,8 @@ function getProductMarginData() {
       };
     }
 
-    const plainProductMap = {};
-    const plainNegativeIncomeProductMap = {};
-
-    // Convert products to plain objects
-    for (const key in productMap) {
-      try {
-        if (
-          productMap[key] &&
-          typeof productMap[key].toPlainObject === "function"
-        ) {
-          plainProductMap[key] = productMap[key].toPlainObject();
-        } else {
-          Logger.log(
-            `WARNING: Product ${key} doesn't have toPlainObject method`
-          );
-          plainProductMap[key] = productMap[key]; // Fallback to raw object
-        }
-      } catch (e) {
-        Logger.log(`ERROR converting product ${key}: ${e.message}`);
-      }
-    }
-
-    // Convert negative income products to plain objects
-    for (const key in negativeIncomeProductMap) {
-      try {
-        if (
-          negativeIncomeProductMap[key] &&
-          typeof negativeIncomeProductMap[key].toPlainObject === "function"
-        ) {
-          plainNegativeIncomeProductMap[key] =
-            negativeIncomeProductMap[key].toPlainObject();
-        } else {
-          Logger.log(
-            `WARNING: Negative product ${key} doesn't have toPlainObject method`
-          );
-          plainNegativeIncomeProductMap[key] = negativeIncomeProductMap[key]; // Fallback to raw object
-        }
-      } catch (e) {
-        Logger.log(`ERROR converting negative product ${key}: ${e.message}`);
-      }
-    }
+    const plainProductMap = Utilities.convertMapToPlainObjects(productMap);
+    const plainNegativeIncomeProductMap = Utilities.convertMapToPlainObjects(negativeIncomeProductMap);
 
     Logger.log(
       `Final plainProductMap keys: ${Object.keys(plainProductMap).length}`
@@ -239,16 +200,8 @@ function getClientAnalysisData() {
       ReaderService.readClientMarginDb();
 
     // 2. Convert the class instances to plain objects for transport
-    const plainClientMap = {};
-    for (const key in clientMap) {
-      plainClientMap[key] = clientMap[key].toPlainObject();
-    }
-
-    const plainNegativeIncomeClientMap = {};
-    for (const key in negativeIncomeClientMap) {
-      plainNegativeIncomeClientMap[key] =
-        negativeIncomeClientMap[key].toPlainObject();
-    }
+    const plainClientMap = Utilities.convertMapToPlainObjects(clientMap);
+    const plainNegativeIncomeClientMap = Utilities.convertMapToPlainObjects(negativeIncomeClientMap);
 
     // 3. Return the clean data to the frontend
     return {

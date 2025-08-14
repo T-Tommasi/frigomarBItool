@@ -93,4 +93,29 @@ class Utilities {
 
     return sheetObject.getRange(startRow, startCol, numRows, numCols).getValues();
   }
+
+  /**
+   * Converts a map of class instances to a map of plain objects by calling .toPlainObject() on each value.
+   * @param {Object.<string, {toPlainObject: function}>} instanceMap - The map of class instances.
+   * @returns {Object.<string, Object>} The map of plain objects.
+   */
+  static convertMapToPlainObjects(instanceMap) {
+    if (!instanceMap) return {};
+    const plainMap = {};
+    for (const key in instanceMap) {
+      if (instanceMap.hasOwnProperty(key)) {
+        try {
+          if (instanceMap[key] && typeof instanceMap[key].toPlainObject === 'function') {
+            plainMap[key] = instanceMap[key].toPlainObject();
+          } else {
+            Logger.log(`Warning: Object with key '${key}' in map does not have a 'toPlainObject' method or is null/undefined. It will be copied as is.`);
+            plainMap[key] = instanceMap[key]; // Fallback
+          }
+        } catch (e) {
+          Logger.log(`ERROR converting object with key '${key}' to plain object: ${e.message}`);
+        }
+      }
+    }
+    return plainMap;
+  }
 }

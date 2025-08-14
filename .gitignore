@@ -6,5 +6,5 @@
 node_modules/
 
 # Secrets (if you store them locally)
-*.secret.js
+.secret.js
 .env

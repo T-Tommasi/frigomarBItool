@@ -74,3 +74,122 @@ function runClientMarginAnalysisTest() {
         Logger.log(`--- Test Complete. ${passed}/${totalTests} tests passed. ---`);
     }
 }
+
+/**
+ * Tests the ReportManager._addProductDetails private method to ensure it correctly
+ * mutates the client map to include product margin details.
+ */
+function runAddProductDetailsTest() {
+    Logger.log('--- Running ReportManager._addProductDetails Test ---');
+    let passed = 0;
+    let totalTests = 0;
+
+    try {
+        // --- 1. ARRANGE ---
+        // Create a mock clientMarginMap. These are simplified objects for the test.
+        const mockClientMarginMap = {
+            '101': {
+                uuid: '101',
+                name: 'Test Client A',
+                productsMap: {
+                    'P01': { uuid: 'P01', margin: 100 },
+                    'P02': { uuid: 'P02', margin: 150 }
+                }
+            },
+            '102': {
+                uuid: '102',
+                name: 'Test Client B',
+                productsMap: {
+                    'P03': { uuid: 'P03', margin: -20 }
+                }
+            }
+        };
+
+        // --- 2. ACT ---
+        // Call the private static method to test its logic directly.
+        ReportManager._addProductDetails(mockClientMarginMap);
+
+        // --- 3. ASSERT ---
+        totalTests++;
+        const clientA = mockClientMarginMap['101'];
+        if (clientA.productDetails && Array.isArray(clientA.productDetails) && clientA.productDetails.length === 2 && clientA.productDetails[1].margin === 150) {
+            Logger.log('✅ PASS: Client A was mutated correctly with productDetails.');
+            passed++;
+        } else {
+            Logger.log('❌ FAIL: Client A was not mutated correctly.');
+            Logger.log('   L Received: ' + JSON.stringify(clientA));
+        }
+
+    } catch (e) {
+        Logger.log(`❌ CRITICAL FAIL: The function threw an unexpected error: ${e.stack}`);
+    } finally {
+        Logger.log(`--- Test Complete. ${passed}/${totalTests} tests passed. ---`);
+    }
+}
+
+/**
+ * Tests the data enrichment logic within the ReportManager class, specifically
+ * the _flagProductAnomalies and _addProductDetails methods.
+ */
+function runReportManagerTest() {
+    Logger.log('--- Running ReportManager Enrichment Logic Test ---');
+    let passed = 0;
+    let totalTests = 0;
+
+    try {
+        // --- 1. ARRANGE ---
+        // Create a mock map that resembles the output of ReaderService.getPartialClientMarginMap
+        const mockClientMarginMap = {
+            'client1': {
+                uuid: 'client1',
+                productsMap: {
+                    'normalProd': { uuid: 'normalProd', margin: 50 },
+                    // This product UUID is in the HARDCODED_ANOMALIES list
+                    'SC022': { uuid: 'SC022', margin: 100 }
+                }
+            },
+            'client2': {
+                uuid: 'client2',
+                productsMap: {
+                    // This product UUID has a different type of anomaly
+                    'BR014': { uuid: 'BR014', margin: -20 }
+                }
+            }
+        };
+
+        // --- 2. ACT ---
+        // Run the private methods directly to test their logic.
+        // This is a pragmatic approach in Apps Script where mocking dependencies is complex.
+        ReportManager._flagProductAnomalies(mockClientMarginMap);
+        ReportManager._addProductDetails(mockClientMarginMap);
+
+        // --- 3. ASSERT ---
+        const client1 = mockClientMarginMap['client1'];
+        const client2 = mockClientMarginMap['client2'];
+
+        // Test 1: Anomaly flagging
+        totalTests++;
+        const anomalyProduct = client1.productsMap['SC022'];
+        if (anomalyProduct.hasAnomaly === true && typeof anomalyProduct.anomalyText === 'string') {
+            Logger.log('✅ PASS: Correctly flagged a product with an anomaly.');
+            passed++;
+        } else {
+            Logger.log('❌ FAIL: Did not correctly flag an anomalous product.');
+        }
+
+        // Test 2: Product details addition
+        totalTests++;
+        if (Array.isArray(client2.productDetails) && client2.productDetails.length === 1 && client2.productDetails[0].margin === -20) {
+            Logger.log('✅ PASS: Correctly added product details to a client object.');
+            passed++;
+        } else {
+            Logger.log('❌ FAIL: Did not correctly add product details.');
+            Logger.log('   L Received: ' + JSON.stringify(client2));
+        }
+
+    } catch (e) {
+        Logger.log(`❌ CRITICAL FAIL: The test threw an unexpected error: ${e.stack}`);
+    } finally {
+        Logger.log(`--- Test Complete. ${passed}/${totalTests} tests passed. ---`);
+    }
+}

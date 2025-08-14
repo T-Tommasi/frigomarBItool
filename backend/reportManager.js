@@ -1,16 +1,20 @@
 class ReportManager {
+    /**
+     * Enriches a map of client data with additional details based on provided options.
+     * @param {object} clientsData - The report configuration object, typically from `generateClientReport`.
+     * @param {object} [options={}] - Options to control data enrichment.
+     * @returns {object} The enriched map of ClientProductRelationAnalysis objects.
+     */
     static generateDetailedClientMarginReport(clientsData, options = {}) {
         const {
             flagAnomalies = true,
             productDetails = false, // This option is available but not yet implemented in the logic below.
         } = options;
 
-        // ReaderService.getPartialClientMarginMap returns a map (object), not an array.
         const clientMarginMap = ReaderService.getPartialClientMarginMap(clientsData);
 
         // Check the number of keys in the returned map.
         if (Object.keys(clientMarginMap).length === 0) {
-            // Use the standard Error constructor and provide a more professional message.
             throw new Error('No client data found for the report based on the provided criteria.');
         }
 
@@ -77,24 +81,27 @@ class ReportManager {
      * @param {object} clientMarginMap - A map of ClientProductRelationAnalysis objects.
      */
     
-    _addProductDetails(clientMarginMap) {
-        let detailedClientMarginManp = {};
-
+    static _addProductDetails(clientMarginMap) {
         for (const client of Object.values(clientMarginMap)) {
-            detailedClientMarginMap[client.id] = {
-                products: []
-            };
+            // Add a new property to the existing client object.
+            client.productDetails = []; 
             for (const product of Object.values(client.productsMap)) {
-                detailedClientMarginMap[client.id].products.push({
+                client.productDetails.push({
                     uuid: product.uuid,
                     margin: product.margin,
-                    hasAnomaly: product.hasAnomaly,
-                    anomalyText: product.anomalyText
                 });
             }
         }
-        // This method is not yet implemented.
-        // Placeholder for future implementation.
-        throw new Error('Product details feature is not yet implemented.');
     }
+
+    static generateSheetReport(clientMarginMap) {
+        const targetSheet = INVOKE_SHEET().REPORT_PAGE;
+        targetSheet.clear(); // Clear existing data before writing new report
+
+        const headers = ['Client UUID', 'Margin', 'Has Anomaly', 'Anomaly Text'];
+
+        let writerArray = [[...headers]];
+        
+    }
+
 }

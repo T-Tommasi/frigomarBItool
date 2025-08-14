@@ -243,7 +243,7 @@ function INVOKE_SHEET() {
     CLIENTS_ETL: _SHEET.getSheetByName("uploadSheetClients"),
     PRODUCT_INCOME_ETL: _SHEET.getSheetByName("UploadPercentiliProdotto"),
     PRODUCT_INCOME: _SHEET.getSheetByName("productIncome"),
-    GENERATOR_PAGE: _SHEET.getSheetByName("ReportPage"),
+    REPORT_PAGE: _SHEET.getSheetByName("ReportPage"),
   };
 }
 

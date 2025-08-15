@@ -11,48 +11,25 @@ class ReportManager {
     const clientMarginMap =
       ReaderService.getPartialClientMarginMap(clientsData);
 
-    // Check the number of keys in the returned map.
     if (Object.keys(clientMarginMap).length === 0) {
       throw new Error(
         "No client data found for the report based on the provided criteria."
       );
     }
 
-    if (flagAnomalies && !productDetails) {
+    if (flagAnomalies) {
       this._flagProductAnomalies(clientMarginMap);
-      return {
-        clientMarginMap,
-        hasAnomalies: true,
-        hasDetails: false,
-      };
     }
 
-    if (productDetails && !flagAnomalies) {
+    if (productDetails) {
       this._addProductDetails(clientMarginMap);
-      return {
-        clientMarginMap,
-        hasAnomalies: false,
-        hasDetails: true,
-      };
     }
 
-    if (productDetails && flagAnomalies) {
-      this._addProductDetails(clientMarginMap);
-      this._flagProductAnomalies(clientMarginMap);
-      return {
-        clientMarginMap,
-        hasAnomalies: true,
-        hasDetails: true,
-      };
-    }
-
-    if (!productDetails && !flagAnomalies) {
-      return {
-        clientMarginMap,
-        hasAnomalies: false,
-        hasDetails: false,
-      };
-    }
+    return {
+      clientMarginMap,
+      hasAnomalies: flagAnomalies,
+      hasDetails: productDetails,
+    };
   }
 
   /**
@@ -62,41 +39,34 @@ class ReportManager {
    * @param {object} clientMarginMap - A map of ClientProductRelationAnalysis objects.
    */
   static _flagProductAnomalies(clientMarginMap) {
-    // 1. Create a unified, efficient lookup map for all anomalies.
     const allAnomalies = HARDCODED_ANOMALIES();
     const anomalyLookup = {};
 
-    // Process internal production anomalies
-    for (const [uuid, data] of Object.entries(
-      allAnomalies.INTERNAL_PRODUCTION_NO_COST
-    )) {
-      anomalyLookup[uuid] = {
-        text: `Prodotto interno con costo fisso manuale di ${data.COST}€`,
-        type: "INTERNAL_PRODUCTION",
-      };
+    const anomalyConfigs = {
+      INTERNAL_PRODUCTION: {
+        source: allAnomalies.INTERNAL_PRODUCTION_NO_COST,
+        textFn: (data) =>
+          `Prodotto interno con costo fisso manuale di ${data.COST}€`,
+      },
+      ERRONEOUS_UUID: {
+        source: allAnomalies.ERRONEOUS_UUID_USED,
+        textFn: (data) => data.ANOMALY_TEXT,
+      },
+      UNKNOWN_PRICE: {
+        source: allAnomalies.UNKNOWN_PRICE_ANOMALY,
+        textFn: (data) => data.ANOMALY_TEXT,
+      },
+    };
+
+    for (const [type, config] of Object.entries(anomalyConfigs)) {
+      for (const [uuid, data] of Object.entries(config.source)) {
+        anomalyLookup[uuid] = {
+          text: config.textFn(data),
+          type,
+        };
+      }
     }
 
-    // Process erroneous UUID usage anomalies
-    for (const [uuid, data] of Object.entries(
-      allAnomalies.ERRONEOUS_UUID_USED
-    )) {
-      anomalyLookup[uuid] = {
-        text: data.ANOMALY_TEXT,
-        type: "ERRONEOUS_UUID",
-      };
-    }
-
-    // Process unknown price anomalies
-    for (const [uuid, data] of Object.entries(
-      allAnomalies.UNKNOWN_PRICE_ANOMALY
-    )) {
-      anomalyLookup[uuid] = {
-        text: data.ANOMALY_TEXT,
-        type: "UNKNOWN_PRICE",
-      };
-    }
-
-    // 2. Iterate through clients and their products to flag anomalies.
     for (const client of Object.values(clientMarginMap)) {
       for (const product of Object.values(client.productsMap)) {
         const anomaly = anomalyLookup[product.uuid];
@@ -127,27 +97,106 @@ class ReportManager {
     }
   }
 
+  static _prepareWriteArray(clientMarginMap, options = {}) {
+    const { trackAnomalies = true, trackDetails = true } = options;
+
+    const headers = ["Client UUID", "Client Margin"];
+    if (trackDetails) {
+      headers.push("Product UUID", "Product Margin");
+    }
+    if (trackAnomalies) {
+      headers.push("Anomaly Text");
+    }
+
+    const writerArray = [headers];
+
+    const marginReportData = this._generateDetailedClientMarginReport(
+      clientMarginMap,
+      {
+        flagAnomalies: trackAnomalies,
+        productDetails: trackDetails,
+      }
+    );
+
+    for (const client of Object.values(marginReportData.clientMarginMap)) {
+      client.calculateMetrics();
+
+      if (trackDetails) {
+        for (const product of Object.values(client.productsMap)) {
+          const row = [client.uuid, client.margin, product.uuid, product.margin];
+          if (trackAnomalies) {
+            row.push(product.anomalyText || "");
+          }
+          writerArray.push(row);
+        }
+      } else {
+        const row = [client.uuid, client.margin];
+        if (trackAnomalies) {
+          const clientAnomalies = Object.values(client.productsMap)
+            .filter((p) => p.hasAnomaly)
+            .map((p) => p.anomalyText)
+            .join(", ");
+          row.push(clientAnomalies || "");
+        }
+        writerArray.push(row);
+      }
+    }
+    return writerArray;
+  }
+
+/**
+ * Writes a report to the designated sheet, formatting headers, alternating row colors,
+ * highlighting anomalies, and auto-resizing columns for readability.
+ *
+ * @param {Object} clientMarginMap - The data map containing client margin information to be written to the sheet.
+ * @param {Object} [options={}] - Optional settings to customize report generation.
+ * @param {Object} options.<key> - Additional options passed to _prepareWriteArray (see implementation for details).
+ *
+ * @throws {Error} If the target sheet or data preparation fails.
+ *
+ * @example
+ * ReportManager.writeReportToSheet(clientMarginMap, { filter: 'active' });
+ */
   static writeReportToSheet(clientMarginMap, options = {}) {
     const targetSheet = INVOKE_SHEET().REPORT_PAGE;
+    const writerArray = this._prepareWriteArray(clientMarginMap, options);
+
+    // Clear previous content and formatting
     targetSheet.clear();
-    let { trackAnomalies = true, trackDetails = true } = options;
 
-    const headers = ["Client UUID", "Margin", "Has Anomaly", "Anomaly Text"];
-    let marginReportData = null;
+    const dataRange = targetSheet.getRange(1, 1, writerArray.length, writerArray[0].length);
+    dataRange.setValues(writerArray);
 
-    let writerArray = [[...headers]];
-    if (!options.trackAnomalies && !options.trackDetails) {
-      marginReportData =
-        this._generateDetailedClientMarginReport(clientMarginMap, { flagAnomalies: false, productDetails: false });
-    } else if (options.trackAnomalies && !options.trackDetails) {
-      marginReportData =
-        this._generateDetailedClientMarginReport(clientMarginMap, { flagAnomalies: true, productDetails: false });
-    } else if (!options.trackAnomalies && options.trackDetails) {
-      marginReportData =
-        this._generateDetailedClientMarginReport(clientMarginMap, { flagAnomalies: false, productDetails: true });
-    } else if (options.trackAnomalies && options.trackDetails) {
-      marginReportData =
-        this._generateDetailedClientMarginReport(clientMarginMap, { flagAnomalies: true, productDetails: true });
+    // Header formatting
+    const headerRange = targetSheet.getRange(1, 1, 1, writerArray[0].length);
+    headerRange
+      .setBackground("#4d4d4d") // A dark grey color
+      .setFontColor("#ffffff") // White text
+      .setFontWeight("bold");
+    targetSheet.setFrozenRows(1);
+
+    // Alternating row colors and anomaly highlighting
+    const anomalyColumnIndex = writerArray[0].indexOf("Anomaly Text");
+    for (let i = 1; i < writerArray.length; i++) {
+      const rowRange = targetSheet.getRange(i + 1, 1, 1, writerArray[0].length);
+      if (i % 2 === 0) {
+        rowRange.setBackground("#f3f3f3"); // Very light grey
+      } else {
+        rowRange.setBackground("#ffffff"); // White
+      }
+
+      // Bold anomalies
+      if (anomalyColumnIndex !== -1 && writerArray[i][anomalyColumnIndex]) {
+        rowRange.setFontWeight("bold");
+      }
+    }
+    
+    // Auto-resize columns for better readability
+    for (let i = 1; i <= writerArray[0].length; i++) {
+      targetSheet.autoResizeColumn(i);
     }
   }
 }
+
+
+

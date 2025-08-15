@@ -150,52 +150,57 @@ class ReportManager {
  *
  * @param {Object} clientMarginMap - The data map containing client margin information to be written to the sheet.
  * @param {Object} [options={}] - Optional settings to customize report generation.
- * @param {Object} options.<key> - Additional options passed to _prepareWriteArray (see implementation for details).
+ * @param {boolean} [options.trackAnomalies=true] - Whether to track and highlight anomalies.
+ * @param {boolean} [options.trackDetails=true] - Whether to include product details.
  *
  * @throws {Error} If the target sheet or data preparation fails.
- *
- * @example
- * ReportManager.writeReportToSheet(clientMarginMap, { filter: 'active' });
  */
-  static writeReportToSheet(clientMarginMap, options = {}) {
-    const targetSheet = INVOKE_SHEET().REPORT_PAGE;
-    const writerArray = this._prepareWriteArray(clientMarginMap, options);
 
-    // Clear previous content and formatting
-    targetSheet.clear();
+static writeReportToSheet(clientMarginMap, options = {}) {
+  const { trackAnomalies = true } = options;
+  const targetSheet = INVOKE_SHEET().REPORT_PAGE;
+  const writerArray = this._prepareWriteArray(clientMarginMap, options);
 
-    const dataRange = targetSheet.getRange(1, 1, writerArray.length, writerArray[0].length);
-    dataRange.setValues(writerArray);
+  targetSheet.clear();
 
-    // Header formatting
-    const headerRange = targetSheet.getRange(1, 1, 1, writerArray[0].length);
-    headerRange
-      .setBackground("#4d4d4d") // A dark grey color
-      .setFontColor("#ffffff") // White text
-      .setFontWeight("bold");
-    targetSheet.setFrozenRows(1);
+  const dataRange = targetSheet.getRange(1, 1, writerArray.length, writerArray[0].length);
+  dataRange.setValues(writerArray);
 
-    // Alternating row colors and anomaly highlighting
-    const anomalyColumnIndex = writerArray[0].indexOf("Anomaly Text");
-    for (let i = 1; i < writerArray.length; i++) {
-      const rowRange = targetSheet.getRange(i + 1, 1, 1, writerArray[0].length);
-      if (i % 2 === 0) {
-        rowRange.setBackground("#f3f3f3"); // Very light grey
-      } else {
-        rowRange.setBackground("#ffffff"); // White
-      }
+  // Header formatting
+  const headerRange = targetSheet.getRange(1, 1, 1, writerArray[0].length);
+  headerRange
+    .setBackground("#4d4d4d")
+    .setFontColor("#ffffff")
+    .setFontWeight("bold");
+  
+  targetSheet.setFrozenRows(1);
 
-      // Bold anomalies
-      if (anomalyColumnIndex !== -1 && writerArray[i][anomalyColumnIndex]) {
-        rowRange.setFontWeight("bold");
-      }
-    }
+  // Alternating row colors and anomaly highlighting
+  const anomalyColumnIndex = trackAnomalies ? writerArray[0].length - 1 : -1;
+  
+  for (let i = 2; i <= writerArray.length; i++) {
+    const rowRange = targetSheet.getRange(i, 1, 1, writerArray[0].length);
+    const isEvenRow = (i % 2 === 0);
     
-    // Auto-resize columns for better readability
-    for (let i = 1; i <= writerArray[0].length; i++) {
-      targetSheet.autoResizeColumn(i);
+    rowRange.setBackground(isEvenRow ? "#f3f3f3" : "#ffffff");
+
+    // Highlight anomalies if tracking is enabled
+    if (trackAnomalies && anomalyColumnIndex !== -1) {
+      const anomalyValue = writerArray[i - 1][anomalyColumnIndex];
+      
+      if (anomalyValue && anomalyValue.trim() !== '') {
+        rowRange.setFontWeight("bold");
+        const anomalyCell = targetSheet.getRange(i, anomalyColumnIndex + 1);
+        anomalyCell.setBackground("#ffe6e6");
+      }
     }
   }
+  
+  // Auto-resize columns
+  for (let col = 1; col <= writerArray[0].length; col++) {
+    targetSheet.autoResizeColumn(col);
+  }
+}
 }
 
 

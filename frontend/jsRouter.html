@@ -1,436 +1,544 @@
 <script>
-    (function () {
-        'use strict';
+  (function () {
+    "use strict";
 
-        // --- STATE MANAGEMENT ---
-        async function fetchDataFromBackend() {
-            // Use the URL provided by the scriptlet and add API parameter
-            const apiUrl = `${WEB_APP_URL}?endpoint=data`;
+    // --- STATE MANAGEMENT ---
+    async function fetchDataFromBackend() {
+      // Use the URL provided by the scriptlet and add API parameter
+      const apiUrl = `${WEB_APP_URL}?endpoint=data`;
 
-            try {
-                const response = await fetch(apiUrl);
+      try {
+        const response = await fetch(apiUrl);
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('Access error:', errorData.error);
-                    throw new Error(errorData.error);
-                }
-
-                const result = await response.json();
-                return result;
-
-            } catch (error) {
-                console.error("Failed to fetch from backend:", error);
-                return null;
-            }
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Access error:", errorData.error);
+          throw new Error(errorData.error);
         }
 
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        console.error("Failed to fetch from backend:", error);
+        return null;
+      }
+    }
 
-        const appState = {
-            page: {
-                masterData: [],
-                currentSearchTerm: '',
-                currentSort: { key: 'totalDue', direction: 'desc' }
-            },
-            modal: {
-                masterInvoiceList: [],
-                currentSearchTerm: '',
-                currentSort: { key: 'date', direction: 'desc' }
-            },
-            productAnalysis: {
-                productMap: {},
-                masterList: [],
-                negativeIncomeList: [],
-                currentSearchTerm: '',
-                currentSort: { key: 'name', direction: 'asc' },
-                selectedProductId: null
-            },
-            clientAnalysis: {
-                clientMap: {},
-                masterList: [],
-                currentSearchTerm: '',
-                currentSort: { key: 'name', direction: 'asc' },
-                selectedClientId: null
-            }
-        };
+    const appState = {
+      page: {
+        masterData: [],
+        currentSearchTerm: "",
+        currentSort: { key: "totalDue", direction: "desc" },
+      },
+      modal: {
+        masterInvoiceList: [],
+        currentSearchTerm: "",
+        currentSort: { key: "date", direction: "desc" },
+      },
+      productAnalysis: {
+        productMap: {},
+        masterList: [],
+        negativeIncomeList: [],
+        currentSearchTerm: "",
+        currentSort: { key: "name", direction: "asc" },
+        selectedProductId: null,
+      },
+      clientAnalysis: {
+        clientMap: {},
+        masterList: [],
+        currentSearchTerm: "",
+        currentSort: { key: "name", direction: "asc" },
+        selectedClientId: null,
+      },
+      reportModal: {
+        isOpen: false,
+        format: "SHEET",
+        options: {
+          anomalyTracking: false,
+          detailedReport: false,
+        },
+      },
+    };
 
-        // --- CACHED DOM REFERENCES ---
-        const domCache = {
-            contentArea: null,
-            pageTitle: null,
-            navMenu: null,
-            detailsModal: null,
-            invoiceSearchInput: null,
-            analyticsSearchInput: null,
-            clientAnalyticsSearchInput: null, // Added for completeness
-            modalSearchInput: null,
+    // --- CACHED DOM REFERENCES ---
+    const domCache = {
+      contentArea: null,
+      pageTitle: null,
+      navMenu: null,
+      detailsModal: null,
+      reportModal: null,
+      invoiceSearchInput: null,
+      analyticsSearchInput: null,
+      clientAnalyticsSearchInput: null, // Added for completeness
+      modalSearchInput: null,
 
-            init() {
-                this.contentArea = document.getElementById('app-content');
-                this.pageTitle = document.getElementById('page-title');
-                this.navMenu = document.querySelector('.nav-menu');
-                this.detailsModal = document.getElementById('details-modal');
-            },
+      init() {
+        this.contentArea = document.getElementById("app-content");
+        this.pageTitle = document.getElementById("page-title");
+        this.navMenu = document.querySelector(".nav-menu");
+        this.detailsModal = document.getElementById("details-modal");
+      },
 
-            // Cache dynamic elements when they're created
-            cachePageElements() {
-                this.invoiceSearchInput = document.getElementById('invoice-search-input');
-                this.analyticsSearchInput = document.getElementById('analytics-search-input');
-                this.clientAnalyticsSearchInput = document.getElementById('client-analytics-search-input');
-            },
+      // Cache dynamic elements when they're created
+      cachePageElements() {
+        this.invoiceSearchInput = document.getElementById(
+          "invoice-search-input"
+        );
+        this.analyticsSearchInput = document.getElementById(
+          "analytics-search-input"
+        );
+        this.clientAnalyticsSearchInput = document.getElementById(
+          "client-analytics-search-input"
+        );
+      },
 
-            cacheModalElements() {
-                this.modalSearchInput = document.getElementById('modal-search-input');
-            }
-        };
+      cacheModalElements() {
+        this.modalSearchInput = document.getElementById("modal-search-input");
+        this.reportModal = document.getElementById("report-modal-overlay");
+      },
+    };
 
-        // --- FORMATTERS ---
-        const formatters = {
-            currency: new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }),
-            date: (dateString) => new Date(dateString).toLocaleDateString('it-IT', {
-                day: '2-digit', month: '2-digit', year: 'numeric'
-            })
-        };
+    // --- FORMATTERS ---
+    const formatters = {
+      currency: new Intl.NumberFormat("it-IT", {
+        style: "currency",
+        currency: "EUR",
+      }),
+      date: (dateString) =>
+        new Date(dateString).toLocaleDateString("it-IT", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }),
+    };
 
-        // --- DATA FILTERING ---
-        function filterInvoiceData(data, searchTerm) {
-            if (!searchTerm?.trim()) return data;
-            const term = searchTerm.toLowerCase();
-            return data.filter(client =>
-                client.clientName.toLowerCase().includes(term) ||
-                String(client.clientId).includes(term)
-            );
+    // --- DATA FILTERING ---
+    function filterInvoiceData(data, searchTerm) {
+      if (!searchTerm?.trim()) return data;
+      const term = searchTerm.toLowerCase();
+      return data.filter(
+        (client) =>
+          client.clientName.toLowerCase().includes(term) ||
+          String(client.clientId).includes(term)
+      );
+    }
+
+    function filterAnalyticsData(data, searchTerm) {
+      if (!searchTerm?.trim()) return data;
+      const term = searchTerm.toLowerCase();
+      return data.filter(
+        (product) =>
+          product.name.toLowerCase().includes(term) ||
+          product.uuid.toLowerCase().includes(term)
+      );
+    }
+
+    function filterClientAnalysisData(data, searchTerm) {
+      if (!searchTerm?.trim()) return data;
+      const term = searchTerm.toLowerCase();
+      return data.filter(
+        (client) =>
+          client.name.toLowerCase().includes(term) ||
+          client.uuid.toLowerCase().includes(term)
+      );
+    }
+
+    function filterModalData(data, searchTerm) {
+      if (!searchTerm?.trim()) return data;
+      const term = searchTerm.toLowerCase();
+      return data.filter(
+        (invoice) =>
+          invoice.uuid.toLowerCase().includes(term) ||
+          invoice.status.toLowerCase().includes(term)
+      );
+    }
+
+    // --- DATA SORTING ---
+    function sortData(data, key, direction) {
+      // Create a shallow copy to avoid mutating the original array passed to it.
+      return [...data].sort((a, b) => {
+        const [valA, valB] = [a[key], b[key]];
+        const comparison =
+          typeof valA === "number" && typeof valB === "number"
+            ? valA - valB
+            : String(valA).localeCompare(String(valB));
+        return direction === "desc" ? -comparison : comparison;
+      });
+    }
+
+    // --- DATA PROCESSING & RENDERING PIPELINES ---
+    function processAndRenderInvoices() {
+      const { masterData, currentSearchTerm, currentSort } = appState.page;
+      const filtered = filterInvoiceData(masterData, currentSearchTerm);
+      const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+      updateInvoicesTable(sorted);
+    }
+
+    function processAndRenderProductAnalysis() {
+      const { masterList, currentSearchTerm, currentSort } =
+        appState.productAnalysis;
+      const filtered = filterAnalyticsData(masterList, currentSearchTerm);
+      const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+      renderAnalyticsMasterTable(sorted);
+    }
+
+    function processAndRenderClientAnalysis() {
+      const { masterList, currentSearchTerm, currentSort } =
+        appState.clientAnalysis;
+      const filtered = filterClientAnalysisData(masterList, currentSearchTerm);
+      const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+      renderClientAnalysisMasterTable(sorted);
+    }
+
+    function processAndRenderModal() {
+      const { masterInvoiceList, currentSearchTerm, currentSort } =
+        appState.modal;
+      const filtered = filterModalData(masterInvoiceList, currentSearchTerm);
+      const sorted = sortData(filtered, currentSort.key, currentSort.direction);
+      renderModalInvoiceTable(sorted);
+    }
+
+    // --- EVENT HANDLERS ---
+    function handleNavClick(e) {
+      const link = e.target.closest(".nav-link");
+      if (link?.dataset.page) {
+        e.preventDefault();
+        updateActiveLink(link);
+        navigateTo(link.dataset.page);
+        return;
+      }
+
+      const toggle = e.target.closest(".nav-submenu-toggle");
+      if (toggle?.dataset.submenu) {
+        const submenu = document.getElementById(toggle.dataset.submenu);
+        if (submenu) {
+          submenu.classList.toggle("open");
+          toggle.classList.toggle("active");
         }
+      }
+    }
 
-        function filterAnalyticsData(data, searchTerm) {
-            if (!searchTerm?.trim()) return data;
-            const term = searchTerm.toLowerCase();
-            return data.filter(product =>
-                product.name.toLowerCase().includes(term) ||
-                product.uuid.toLowerCase().includes(term)
-            );
-        }
+    function handleContentClick(e) {
+      const reportModalBtn = e.target.closest("#report-modal-btn");
+      if (reportModalBtn) {
+        openReportModal();
+        return;
+      }
 
-        function filterClientAnalysisData(data, searchTerm) {
-            if (!searchTerm?.trim()) return data;
-            const term = searchTerm.toLowerCase();
-            return data.filter(client =>
-                client.name.toLowerCase().includes(term) ||
-                client.uuid.toLowerCase().includes(term)
-            );
-        }
+      // Invoice Page Clicks
+      const invoiceSortHeader = e.target.closest("#invoices-table th.sortable");
+      const detailsButton = e.target.closest(".btn-details");
 
-        function filterModalData(data, searchTerm) {
-            if (!searchTerm?.trim()) return data;
-            const term = searchTerm.toLowerCase();
-            return data.filter(invoice =>
-                invoice.uuid.toLowerCase().includes(term) ||
-                invoice.status.toLowerCase().includes(term)
-            );
-        }
+      // Product Analysis Page Clicks
+      const productSortHeader = e.target.closest(
+        "#product-master-list th.sortable"
+      );
+      const productRow = e.target.closest(
+        "#analytics-master-body tr[data-product-id]"
+      );
 
-        // --- DATA SORTING ---
-        function sortData(data, key, direction) {
-            // Create a shallow copy to avoid mutating the original array passed to it.
-            return [...data].sort((a, b) => {
-                const [valA, valB] = [a[key], b[key]];
-                const comparison = typeof valA === 'number' && typeof valB === 'number'
-                    ? valA - valB
-                    : String(valA).localeCompare(String(valB));
-                return direction === 'desc' ? -comparison : comparison;
-            });
-        }
+      // Client Analysis Page Clicks
+      const clientSortHeader = e.target.closest(
+        "#client-master-list th.sortable"
+      );
+      const clientRow = e.target.closest(
+        "#client-analytics-master-body tr[data-client-id]"
+      );
 
-        // --- DATA PROCESSING & RENDERING PIPELINES ---
-        function processAndRenderInvoices() {
-            const { masterData, currentSearchTerm, currentSort } = appState.page;
-            const filtered = filterInvoiceData(masterData, currentSearchTerm);
-            const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-            updateInvoicesTable(sorted);
-        }
+      if (invoiceSortHeader?.dataset.sortKey) {
+        handleSort(appState.page, invoiceSortHeader.dataset.sortKey);
+        processAndRenderInvoices();
+      } else if (detailsButton?.dataset.clientId) {
+        openDetailsModal(detailsButton.dataset.clientId);
+      } else if (productSortHeader?.dataset.sortKey) {
+        handleSort(appState.productAnalysis, productSortHeader.dataset.sortKey);
+        processAndRenderProductAnalysis();
+      } else if (productRow) {
+        handleAnalyticsRowSelection(productRow);
+      } else if (clientSortHeader?.dataset.sortKey) {
+        handleSort(appState.clientAnalysis, clientSortHeader.dataset.sortKey);
+        processAndRenderClientAnalysis();
+      } else if (clientRow) {
+        handleClientRowSelection(clientRow);
+      }
+    }
 
-        function processAndRenderProductAnalysis() {
-            const { masterList, currentSearchTerm, currentSort } = appState.productAnalysis;
-            const filtered = filterAnalyticsData(masterList, currentSearchTerm);
-            const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-            renderAnalyticsMasterTable(sorted);
-        }
+    function handleContentInput(e) {
+      const targetId = e.target.id;
+      if (targetId === "invoice-search-input") {
+        appState.page.currentSearchTerm = e.target.value;
+        processAndRenderInvoices();
+      } else if (targetId === "analytics-search-input") {
+        appState.productAnalysis.currentSearchTerm = e.target.value;
+        processAndRenderProductAnalysis();
+      } else if (targetId === "client-analytics-search-input") {
+        appState.clientAnalysis.currentSearchTerm = e.target.value;
+        processAndRenderClientAnalysis();
+      }
+    }
 
-        function processAndRenderClientAnalysis() {
-            const { masterList, currentSearchTerm, currentSort } = appState.clientAnalysis;
-            const filtered = filterClientAnalysisData(masterList, currentSearchTerm);
-            const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-            renderClientAnalysisMasterTable(sorted);
-        }
+    function handleModalClick(e) {
+      if (
+        e.target.closest("#modal-close-btn") ||
+        e.target.closest("#modal-footer-close-btn")
+      ) {
+        closeDetailsModal();
+      }
 
-        function processAndRenderModal() {
-            const { masterInvoiceList, currentSearchTerm, currentSort } = appState.modal;
-            const filtered = filterModalData(masterInvoiceList, currentSearchTerm);
-            const sorted = sortData(filtered, currentSort.key, currentSort.direction);
-            renderModalInvoiceTable(sorted);
-        }
+      const sortableHeader = e.target.closest("th.sortable");
+      if (sortableHeader?.dataset.sortKey) {
+        handleSort(appState.modal, sortableHeader.dataset.sortKey);
+        processAndRenderModal();
+      }
+    }
 
+    function handleModalInput(e) {
+      if (e.target.id === "modal-search-input") {
+        appState.modal.currentSearchTerm = e.target.value;
+        processAndRenderModal();
+      }
+    }
 
-        // --- EVENT HANDLERS ---
-        function handleNavClick(e) {
-            const link = e.target.closest('.nav-link');
-            if (link?.dataset.page) {
-                e.preventDefault();
-                updateActiveLink(link);
-                navigateTo(link.dataset.page);
-                return;
-            }
+    function handleReportModalSubmit(e) {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+      const format = formData.get("reportFormat");
+      const anomalyTracking = formData.has("anomalyTracking");
+      const detailedReport = formData.has("detailedReport");
 
-            const toggle = e.target.closest('.nav-submenu-toggle');
-            if (toggle?.dataset.submenu) {
-                const submenu = document.getElementById(toggle.dataset.submenu);
-                if (submenu) {
-                    submenu.classList.toggle('open');
-                    toggle.classList.toggle('active');
-                }
-            }
-        }
+      appState.reportModal.format = format;
+      appState.reportModal.options.anomalyTracking = anomalyTracking;
+      appState.reportModal.options.detailedReport = detailedReport;
 
-        function handleContentClick(e) {
-            // Invoice Page Clicks
-            const invoiceSortHeader = e.target.closest('#invoices-table th.sortable');
-            const detailsButton = e.target.closest('.btn-details');
+      // TODO: Implement report generation logic
+      console.log("Generating report with settings:", appState.reportModal);
 
-            // Product Analysis Page Clicks
-            const productSortHeader = e.target.closest('#product-master-list th.sortable');
-            const productRow = e.target.closest('#analytics-master-body tr[data-product-id]');
+      closeReportModal();
+    }
 
-            // Client Analysis Page Clicks
-            const clientSortHeader = e.target.closest('#client-master-list th.sortable');
-            const clientRow = e.target.closest('#client-analytics-master-body tr[data-client-id]');
+    function handleSort(stateObj, sortKey) {
+      if (stateObj.currentSort.key === sortKey) {
+        stateObj.currentSort.direction =
+          stateObj.currentSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        stateObj.currentSort.key = sortKey;
+        // Default sort direction based on key type; can be customized
+        stateObj.currentSort.direction = ["name", "clientName"].includes(
+          sortKey
+        )
+          ? "asc"
+          : "desc";
+      }
+    }
 
-            if (invoiceSortHeader?.dataset.sortKey) {
-                handleSort(appState.page, invoiceSortHeader.dataset.sortKey);
-                processAndRenderInvoices();
-            } else if (detailsButton?.dataset.clientId) {
-                openDetailsModal(detailsButton.dataset.clientId);
-            } else if (productSortHeader?.dataset.sortKey) {
-                handleSort(appState.productAnalysis, productSortHeader.dataset.sortKey);
-                processAndRenderProductAnalysis();
-            } else if (productRow) {
-                handleAnalyticsRowSelection(productRow);
-            } else if (clientSortHeader?.dataset.sortKey) {
-                handleSort(appState.clientAnalysis, clientSortHeader.dataset.sortKey);
-                processAndRenderClientAnalysis();
-            } else if (clientRow) {
-                handleClientRowSelection(clientRow);
-            }
-        }
+    function handleAnalyticsRowSelection(row) {
+      const productId = row.dataset.productId;
+      const previouslySelected = document.querySelector(
+        "#analytics-master-body .selected-row"
+      );
 
-        function handleContentInput(e) {
-            const targetId = e.target.id;
-            if (targetId === 'invoice-search-input') {
-                appState.page.currentSearchTerm = e.target.value;
-                processAndRenderInvoices();
-            } else if (targetId === 'analytics-search-input') {
-                appState.productAnalysis.currentSearchTerm = e.target.value;
-                processAndRenderProductAnalysis();
-            } else if (targetId === 'client-analytics-search-input') {
-                appState.clientAnalysis.currentSearchTerm = e.target.value;
-                processAndRenderClientAnalysis();
-            }
-        }
+      if (previouslySelected)
+        previouslySelected.classList.remove("selected-row");
 
-        function handleModalClick(e) {
-            if (e.target.closest('#modal-close-btn') || e.target.closest('#modal-footer-close-btn')) {
-                closeDetailsModal();
-            }
+      if (previouslySelected !== row) {
+        row.classList.add("selected-row");
+        appState.productAnalysis.selectedProductId = productId;
+        renderAnalyticsDetailView(productId);
+      } else {
+        appState.productAnalysis.selectedProductId = null;
+        renderAnalyticsDetailView(null); // Clear detail view on re-click
+      }
+    }
 
-            const sortableHeader = e.target.closest('th.sortable');
-            if (sortableHeader?.dataset.sortKey) {
-                handleSort(appState.modal, sortableHeader.dataset.sortKey);
-                processAndRenderModal();
-            }
-        }
+    function handleClientRowSelection(row) {
+      const clientId = row.dataset.clientId;
+      const previouslySelected = document.querySelector(
+        "#client-analytics-master-body .selected-row"
+      );
 
-        function handleModalInput(e) {
-            if (e.target.id === 'modal-search-input') {
-                appState.modal.currentSearchTerm = e.target.value;
-                processAndRenderModal();
-            }
-        }
+      if (previouslySelected)
+        previouslySelected.classList.remove("selected-row");
 
-        function handleSort(stateObj, sortKey) {
-            if (stateObj.currentSort.key === sortKey) {
-                stateObj.currentSort.direction = stateObj.currentSort.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                stateObj.currentSort.key = sortKey;
-                // Default sort direction based on key type; can be customized
-                stateObj.currentSort.direction = ['name', 'clientName'].includes(sortKey) ? 'asc' : 'desc';
-            }
-        }
+      if (previouslySelected !== row) {
+        row.classList.add("selected-row");
+        appState.clientAnalysis.selectedClientId = clientId;
+        renderClientAnalysisDetailView(clientId);
+      } else {
+        appState.clientAnalysis.selectedClientId = null;
+        renderClientAnalysisDetailView(null); // Clear the detail view
+      }
+    }
 
-        function handleAnalyticsRowSelection(row) {
-            const productId = row.dataset.productId;
-            const previouslySelected = document.querySelector('#analytics-master-body .selected-row');
+    // --- NAVIGATION ---
+    function navigateTo(page) {
+      domCache.contentArea.innerHTML =
+        '<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento vista...</div>';
 
-            if (previouslySelected) previouslySelected.classList.remove('selected-row');
+      const pageConfig = {
+        invoices: {
+          title: "Scadenzario Clienti",
+          loadView: "loadInvoicesView",
+          successHandler: loadInvoicesPageAndData,
+        },
+        productAnalysis: {
+          title: "Analisi Margini Prodotti",
+          loadView: "loadProductAnalysisView",
+          successHandler: loadProductAnalysisPageAndData,
+        },
+        clientAnalysis: {
+          title: "Analisi Margini Cliente",
+          loadView: "loadClientAnalysisView",
+          successHandler: loadClientAnalysisPageAndData,
+        },
+      };
 
-            if (previouslySelected !== row) {
-                row.classList.add('selected-row');
-                appState.productAnalysis.selectedProductId = productId;
-                renderAnalyticsDetailView(productId);
-            } else {
-                appState.productAnalysis.selectedProductId = null;
-                renderAnalyticsDetailView(null); // Clear detail view on re-click
-            }
-        }
+      const config = pageConfig[page];
+      if (config) {
+        domCache.pageTitle.textContent = config.title;
+        google.script.run
+          .withSuccessHandler(config.successHandler)
+          .withFailureHandler(showError)
+          [config.loadView]();
+      } else {
+        domCache.pageTitle.textContent = "Home";
+        showError({ message: "Pagina non trovata o in costruzione." });
+      }
+    }
 
-        function handleClientRowSelection(row) {
-            const clientId = row.dataset.clientId;
-            const previouslySelected = document.querySelector('#client-analytics-master-body .selected-row');
+    // --- PAGE & DATA INITIALIZATION ---
 
-            if (previouslySelected) previouslySelected.classList.remove('selected-row');
+    function loadInvoicesPageAndData(html) {
+      domCache.contentArea.innerHTML = html;
+      domCache.cachePageElements();
+      google.script.run
+        .withSuccessHandler(initializeInvoiceData)
+        .withFailureHandler(onDataLoadError)
+        .getClientSummaryData();
+    }
 
-            if (previouslySelected !== row) {
-                row.classList.add('selected-row');
-                appState.clientAnalysis.selectedClientId = clientId;
-                renderClientAnalysisDetailView(clientId);
-            } else {
-                appState.clientAnalysis.selectedClientId = null;
-                renderClientAnalysisDetailView(null); // Clear the detail view
-            }
-        }
+    function initializeInvoiceData(summaryData) {
+      appState.page.masterData = summaryData || [];
+      processAndRenderInvoices();
+    }
 
-        // --- NAVIGATION ---
-        function navigateTo(page) {
-            domCache.contentArea.innerHTML = '<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento vista...</div>';
+    function loadProductAnalysisPageAndData(html) {
+      domCache.contentArea.innerHTML = html;
+      domCache.cachePageElements();
+      google.script.run
+        .withSuccessHandler(initializeProductAnalysisData)
+        .withFailureHandler(showError)
+        .getProductMarginData();
+    }
 
-            const pageConfig = {
-                invoices: { title: 'Scadenzario Clienti', loadView: 'loadInvoicesView', successHandler: loadInvoicesPageAndData },
-                productAnalysis: { title: 'Analisi Margini Prodotti', loadView: 'loadProductAnalysisView', successHandler: loadProductAnalysisPageAndData },
-                clientAnalysis: { title: 'Analisi Margini Cliente', loadView: 'loadClientAnalysisView', successHandler: loadClientAnalysisPageAndData }
-            };
+    function initializeProductAnalysisData(dataPayload) {
+      if (!dataPayload?.productMap) {
+        showError({ message: "Nessun dato prodotto ricevuto dal server." });
+        return;
+      }
 
-            const config = pageConfig[page];
-            if (config) {
-                domCache.pageTitle.textContent = config.title;
-                google.script.run
-                    .withSuccessHandler(config.successHandler)
-                    .withFailureHandler(showError)
-                [config.loadView]();
-            } else {
-                domCache.pageTitle.textContent = 'Home';
-                showError({ message: 'Pagina non trovata o in costruzione.' });
-            }
-        }
+      const state = appState.productAnalysis;
+      state.productMap = dataPayload.productMap || {};
+      state.masterList = Object.values(state.productMap);
+      state.negativeIncomeList = Object.values(
+        dataPayload.negativeIncomeProductMap || {}
+      );
+      state.currentSearchTerm = "";
+      state.currentSort = { key: "name", direction: "asc" };
 
-        // --- PAGE & DATA INITIALIZATION ---
+      processAndRenderProductAnalysis();
+      renderAnalyticsDetailView(null); // Clear detail view on new data load
+    }
 
+    function loadClientAnalysisPageAndData(html) {
+      domCache.contentArea.innerHTML = html;
+      domCache.cachePageElements(); // Ensure new inputs are cached
+      renderReportModal();
+      google.script.run
+        .withSuccessHandler(initializeClientAnalysisData)
+        .withFailureHandler(showError)
+        .getClientAnalysisData();
+    }
 
-        function loadInvoicesPageAndData(html) {
-            domCache.contentArea.innerHTML = html;
-            domCache.cachePageElements();
-            google.script.run
-                .withSuccessHandler(initializeInvoiceData)
-                .withFailureHandler(onDataLoadError)
-                .getClientSummaryData();
-        }
+    function initializeClientAnalysisData(dataPayload) {
+      if (!dataPayload?.clientMap) {
+        showError({ message: "Nessun dato cliente ricevuto dal server." });
+        return;
+      }
+      const state = appState.clientAnalysis;
+      state.clientMap = dataPayload.clientMap || {};
+      state.masterList = Object.values(state.clientMap);
+      state.currentSearchTerm = "";
+      state.currentSort = { key: "name", direction: "asc" };
 
-        function initializeInvoiceData(summaryData) {
-            appState.page.masterData = summaryData || [];
-            processAndRenderInvoices();
-        }
+      processAndRenderClientAnalysis();
+      renderClientAnalysisDetailView(null); // Clear detail view
+    }
 
-        function loadProductAnalysisPageAndData(html) {
-            domCache.contentArea.innerHTML = html;
-            domCache.cachePageElements();
-            google.script.run
-                .withSuccessHandler(initializeProductAnalysisData)
-                .withFailureHandler(showError)
-                .getProductMarginData();
-        }
+    // --- MODAL MANAGEMENT ---
+    function openDetailsModal(clientId) {
+      if (!domCache.detailsModal) return;
 
-        function initializeProductAnalysisData(dataPayload) {
-            if (!dataPayload?.productMap) {
-                showError({ message: 'Nessun dato prodotto ricevuto dal server.' });
-                return;
-            }
+      const modalTitle = document.getElementById("modal-title");
+      const modalBody = document.getElementById("modal-body");
+      const searchContainer = document.getElementById("modal-search-container");
 
-            const state = appState.productAnalysis;
-            state.productMap = dataPayload.productMap || {};
-            state.masterList = Object.values(state.productMap);
-            state.negativeIncomeList = Object.values(dataPayload.negativeIncomeProductMap || {});
-            state.currentSearchTerm = '';
-            state.currentSort = { key: 'name', direction: 'asc' };
+      searchContainer.style.display = "flex";
+      modalTitle.textContent = `Dettagli Cliente: ${clientId}`;
+      modalBody.innerHTML =
+        '<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento dettagli...</div>';
 
-            processAndRenderProductAnalysis();
-            renderAnalyticsDetailView(null); // Clear detail view on new data load
-        }
+      domCache.detailsModal.showModal();
+      google.script.run
+        .withSuccessHandler(populateDetailsModal)
+        .withFailureHandler(renderModalError)
+        .getClientDetails(clientId);
+    }
 
-        function loadClientAnalysisPageAndData(html) {
-            domCache.contentArea.innerHTML = html;
-            domCache.cachePageElements(); // Ensure new inputs are cached
-            google.script.run
-                .withSuccessHandler(initializeClientAnalysisData)
-                .withFailureHandler(showError)
-                .getClientAnalysisData();
-        }
+    function closeDetailsModal() {
+      if (domCache.detailsModal) {
+        const searchContainer = document.getElementById(
+          "modal-search-container"
+        );
+        searchContainer.style.display = "none";
+        domCache.detailsModal.close();
+        // Reset modal state
+        appState.modal.masterInvoiceList = [];
+        appState.modal.currentSearchTerm = "";
+      }
+    }
 
-        function initializeClientAnalysisData(dataPayload) {
-            if (!dataPayload?.clientMap) {
-                showError({ message: 'Nessun dato cliente ricevuto dal server.' });
-                return;
-            }
-            const state = appState.clientAnalysis;
-            state.clientMap = dataPayload.clientMap || {};
-            state.masterList = Object.values(state.clientMap);
-            state.currentSearchTerm = '';
-            state.currentSort = { key: 'name', direction: 'asc' };
+    function openReportModal() {
+      if (!domCache.reportModal) {
+        renderReportModal();
+      }
+      domCache.reportModal.style.display = "flex";
+      appState.reportModal.isOpen = true;
+    }
 
-            processAndRenderClientAnalysis();
-            renderClientAnalysisDetailView(null); // Clear detail view
-        }
+    function closeReportModal() {
+      if (domCache.reportModal) {
+        domCache.reportModal.style.display = "none";
+        appState.reportModal.isOpen = false;
+      }
+    }
 
-        // --- MODAL MANAGEMENT ---
-        function openDetailsModal(clientId) {
-            if (!domCache.detailsModal) return;
+    function populateDetailsModal(clientObject) {
+      const modalTitle = document.getElementById("modal-title");
+      const modalBody = document.getElementById("modal-body");
 
-            const modalTitle = document.getElementById('modal-title');
-            const modalBody = document.getElementById('modal-body');
-            const searchContainer = document.getElementById('modal-search-container');
+      if (!modalBody || !clientObject) {
+        renderModalError({
+          message: "Impossibile caricare i dati del cliente.",
+        });
+        return;
+      }
 
-            searchContainer.style.display = 'flex';
-            modalTitle.textContent = `Dettagli Cliente: ${clientId}`;
-            modalBody.innerHTML = '<div class="loading-indicator" style="text-align:center; padding: 3rem;">Caricamento dettagli...</div>';
+      modalTitle.textContent = `Dettagli: ${clientObject.name}`;
+      appState.modal.masterInvoiceList = clientObject.invoices || [];
+      appState.modal.currentSearchTerm = "";
 
-            domCache.detailsModal.showModal();
-            google.script.run
-                .withSuccessHandler(populateDetailsModal)
-                .withFailureHandler(renderModalError)
-                .getClientDetails(clientId);
-        }
-
-        function closeDetailsModal() {
-            if (domCache.detailsModal) {
-                const searchContainer = document.getElementById('modal-search-container');
-                searchContainer.style.display = 'none';
-                domCache.detailsModal.close();
-                // Reset modal state
-                appState.modal.masterInvoiceList = [];
-                appState.modal.currentSearchTerm = '';
-            }
-        }
-
-        function populateDetailsModal(clientObject) {
-            const modalTitle = document.getElementById('modal-title');
-            const modalBody = document.getElementById('modal-body');
-
-            if (!modalBody || !clientObject) {
-                renderModalError({ message: 'Impossibile caricare i dati del cliente.' });
-                return;
-            }
-
-            modalTitle.textContent = `Dettagli: ${clientObject.name}`;
-            appState.modal.masterInvoiceList = clientObject.invoices || [];
-            appState.modal.currentSearchTerm = '';
-
-            modalBody.innerHTML = `
+      modalBody.innerHTML = `
         <div class="table-container">
           <table class="data-table">
             <thead>
@@ -449,31 +557,253 @@
           </table>
         </div>`;
 
-            domCache.cacheModalElements();
-            processAndRenderModal();
+      domCache.cacheModalElements();
+      processAndRenderModal();
+    }
+
+    // --- RENDERING ---
+    function renderReportModal() {
+      const modalContainer = document.createElement("div");
+      modalContainer.innerHTML = `
+        <dialog class="modal" id="report-modal">
+            <div class="modal-header">
+                <h3>Generate Report</h3>
+                <button type="button" class="modal-close-btn" id="close-modal-btn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="report-type-form" class="report-form">
+                    <div class="form-section">
+                        <h4 class="section-title">Output Format</h4>
+                        <div class="radio-group">
+                            <div class="radio-option disabled">
+                                <input type="radio" id="format-pdf" name="reportFormat" value="PDF" disabled>
+                                <label for="format-pdf" class="radio-label">
+                                    <div class="radio-content">
+                                        <svg class="format-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M4 3a2 2 0 00-2 2v1.5h16V5a2 2 0 00-2-2H4z"/>
+                                            <path fill-rule="evenodd" d="M18 8.5H2V15a2 2 0 002 2h12a2 2 0 002-2V8.5zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div>
+                                            <span class="format-name">PDF</span>
+                                            <span class="format-desc">Portable document format</span>
+                                        </div>
+                                    </div>
+                                    <span class="coming-soon">Coming Soon</span>
+                                </label>
+                            </div>
+                            
+                            <div class="radio-option disabled">
+                                <input type="radio" id="format-docs" name="reportFormat" value="DOCS" disabled>
+                                <label for="format-docs" class="radio-label">
+                                    <div class="radio-content">
+                                        <svg class="format-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v8H4V6z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div>
+                                            <span class="format-name">DOCS</span>
+                                            <span class="format-desc">Word document format</span>
+                                        </div>
+                                    </div>
+                                    <span class="coming-soon">Coming Soon</span>
+                                </label>
+                            </div>
+                            
+                            <div class="radio-option disabled">
+                                <input type="radio" id="format-csv" name="reportFormat" value="CSV" disabled>
+                                <label for="format-csv" class="radio-label">
+                                    <div class="radio-content">
+                                        <svg class="format-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zM14 9a1 1 0 00-1 1v2a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 00-1-1h-2z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div>
+                                            <span class="format-name">CSV</span>
+                                            <span class="format-desc">Comma separated values</span>
+                                        </div>
+                                    </div>
+                                    <span class="coming-soon">Coming Soon</span>
+                                </label>
+                            </div>
+                            
+                            <div class="radio-option">
+                                <input type="radio" id="format-sheet" name="reportFormat" value="SHEET" checked>
+                                <label for="format-sheet" class="radio-label">
+                                    <div class="radio-content">
+                                        <svg class="format-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm-1 9v-1h5v2H5a1 1 0 01-1-1zm7 1h4a1 1 0 001-1v-1h-5v2zm0-4h5V8h-5v2zM9 8H4v2h5V8z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div>
+                                            <span class="format-name">Google Sheets</span>
+                                            <span class="format-desc">Live spreadsheet format</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section">
+                        <h4 class="section-title">Report Options</h4>
+                        <div class="checkbox-group">
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="anomaly-tracking" name="anomalyTracking">
+                                <label for="anomaly-tracking" class="checkbox-label">
+                                    <svg class="option-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div>
+                                        <span class="option-name">Anomaly Tracking</span>
+                                        <span class="option-desc">Include anomaly detection and alerts</span>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <div class="checkbox-option">
+                                <input type="checkbox" id="detailed-report" name="detailedReport">
+                                <label for="detailed-report" class="checkbox-label">
+                                    <svg class="option-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 01-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div>
+                                        <span class="option-name">Detailed Report</span>
+                                        <span class="option-desc">Include comprehensive analytics and breakdowns</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-report-btn">Cancel</button>
+                <button type="submit" form="report-type-form" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="margin-right: 0.5rem;">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                    Generate Report
+                </button>
+            </div>
+        </dialog>
+    `;
+
+      document.body.appendChild(modalContainer);
+      domCache.cacheModalElements();
+
+      const modal = document.getElementById("report-modal");
+      const reportForm = document.getElementById("report-type-form");
+      const closeModalBtn = document.getElementById("close-modal-btn");
+      const cancelBtn = document.getElementById("cancel-report-btn");
+
+      reportForm.addEventListener("submit", handleReportModalSubmit);
+      closeModalBtn.addEventListener("click", closeReportModal);
+      cancelBtn.addEventListener("click", closeReportModal);
+
+      // Close on backdrop click
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) {
+          closeReportModal();
         }
+      });
+    }
+    // Helper functions for the report modal
 
-        // --- RENDERING ---
-        function renderModalInvoiceTable(dataToRender) {
-            const tableBody = document.getElementById('modal-invoice-table-body');
-            if (!tableBody) return;
+    function openReportModal() {
+      const modal = document.getElementById("report-modal");
+      if (modal) {
+        modal.showModal();
+        document.body.style.overflow = "hidden";
+      }
+    }
 
-            if (!dataToRender || dataToRender.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 3rem;">Nessuna fattura corrispondente alla ricerca.</td></tr>`;
-                return;
-            }
+    function closeReportModal() {
+      const modal = document.getElementById("report-modal");
+      if (modal) {
+        modal.close();
+        document.body.style.overflow = "";
+        // Clean up the modal from DOM after closing
+        setTimeout(() => {
+          modal.parentElement?.remove();
+        }, 300);
+      }
+    }
 
-            const fragment = document.createDocumentFragment();
-            dataToRender.forEach(inv => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
+    function handleReportModalSubmit(e) {
+      e.preventDefault();
+
+      const formData = new FormData(e.target);
+      const reportConfig = {
+        format: formData.get("reportFormat"),
+        options: {
+          anomalyTracking: formData.has("anomalyTracking"),
+          detailedReport: formData.has("detailedReport"),
+        },
+      };
+
+      console.log("Generating report with config:", reportConfig);
+
+      generateReport(reportConfig);
+
+      closeReportModal();
+    }
+
+    function generateReport(config) {
+      console.log(
+        `Generating ${config.format} report with options:`,
+        config.options
+      );
+
+      // Example implementation based on format
+      switch (config.format) {
+        case "SHEET":
+          // Call your Google Sheets generation function
+          break;
+        case "PDF":
+        case "DOCS":
+        case "CSV":
+          // These will be implemented when available
+          console.log(`${config.format} generation not yet implemented`);
+          break;
+      }
+    }
+
+    const domCacheExtension = {
+      cacheModalElements() {
+        this.reportModal = document.getElementById("report-modal");
+        this.reportForm = document.getElementById("report-type-form");
+        this.closeModalBtn = document.getElementById("close-modal-btn");
+        this.cancelBtn = document.getElementById("cancel-report-btn");
+      },
+    };
+
+    function renderModalInvoiceTable(dataToRender) {
+      const tableBody = document.getElementById("modal-invoice-table-body");
+      if (!tableBody) return;
+
+      if (!dataToRender || dataToRender.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 3rem;">Nessuna fattura corrispondente alla ricerca.</td></tr>`;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      dataToRender.forEach((inv) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
                 <td>${inv.uuid}</td>
-                <td class="text-right">${formatters.currency.format(inv.amount)}</td>
-                <td class="text-right">${formatters.currency.format(inv.paid)}</td>
+                <td class="text-right">${formatters.currency.format(
+                  inv.amount
+                )}</td>
+                <td class="text-right">${formatters.currency.format(
+                  inv.paid
+                )}</td>
                 <td>${inv.status}</td>
                 <td>${formatters.date(inv.date)}</td>
                 <td>${formatters.date(inv.dueDate)}</td>
-                <td>${inv.invoiceNote || ''}</td>
+                <td>${inv.invoiceNote || ""}</td>
                 <td>
                   <div class="invoice-actions">
                     <button class="btn btn-secondary" disabled>Nota</button>
@@ -481,35 +811,42 @@
                   </div>
                 </td>
             `;
-                fragment.appendChild(row);
-            });
+        fragment.appendChild(row);
+      });
 
-            tableBody.innerHTML = '';
-            tableBody.appendChild(fragment);
-            updateSortIndicators('#details-modal .data-table', appState.modal.currentSort);
-        }
+      tableBody.innerHTML = "";
+      tableBody.appendChild(fragment);
+      updateSortIndicators(
+        "#details-modal .data-table",
+        appState.modal.currentSort
+      );
+    }
 
-        function updateInvoicesTable(dataToRender) {
-            const tableBody = document.getElementById('invoices-table-body');
-            if (!tableBody) return;
+    function updateInvoicesTable(dataToRender) {
+      const tableBody = document.getElementById("invoices-table-body");
+      if (!tableBody) return;
 
-            // Header is now part of the static HTML template loaded by `loadInvoicesView`
-            // So we just update sort indicators on the existing header.
+      // Header is now part of the static HTML template loaded by `loadInvoicesView`
+      // So we just update sort indicators on the existing header.
 
-            if (!dataToRender?.length) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun dato corrispondente alla ricerca.</td></tr>`;
-                return;
-            }
+      if (!dataToRender?.length) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun dato corrispondente alla ricerca.</td></tr>`;
+        return;
+      }
 
-            const fragment = document.createDocumentFragment();
-            dataToRender.forEach(client => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
+      const fragment = document.createDocumentFragment();
+      dataToRender.forEach((client) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
                 <td>${client.clientName}</td>
                 <td>${client.clientId}</td>
                 <td class="text-center">${client.invoiceCount}</td>
-                <td class="text-right">${formatters.currency.format(client.totalDue)}</td>
-                <td class="text-right" style="color: ${client.totalOverdue > 0 ? 'var(--danger-color)' : 'inherit'};">
+                <td class="text-right">${formatters.currency.format(
+                  client.totalDue
+                )}</td>
+                <td class="text-right" style="color: ${
+                  client.totalOverdue > 0 ? "var(--danger-color)" : "inherit"
+                };">
                     ${formatters.currency.format(client.totalOverdue)}
                 </td>
                 <td class="text-right" style="color: var(--success-color);">
@@ -517,45 +854,53 @@
                 </td>
                 <td>
                   <div class="action-cell-container">
-                    <button class="btn btn-primary btn-details" data-client-id="${client.clientId}">Dettagli</button>
+                    <button class="btn btn-primary btn-details" data-client-id="${
+                      client.clientId
+                    }">Dettagli</button>
                     <button class="btn btn-success">Aggiungi Pagamento</button>
                   </div>
                 </td>
             `;
-                fragment.appendChild(row);
-            });
+        fragment.appendChild(row);
+      });
 
-            tableBody.innerHTML = '';
-            tableBody.appendChild(fragment);
-            updateSortIndicators('#invoices-table', appState.page.currentSort);
-        }
+      tableBody.innerHTML = "";
+      tableBody.appendChild(fragment);
+      updateSortIndicators("#invoices-table", appState.page.currentSort);
+    }
 
-        function renderAnalyticsMasterTable(dataToRender) {
-            const tableBody = document.getElementById('analytics-master-body');
-            if (!tableBody) return;
+    function renderAnalyticsMasterTable(dataToRender) {
+      const tableBody = document.getElementById("analytics-master-body");
+      if (!tableBody) return;
 
-            if (!dataToRender || dataToRender.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun prodotto trovato.</td></tr>`;
-                return;
-            }
+      if (!dataToRender || dataToRender.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun prodotto trovato.</td></tr>`;
+        return;
+      }
 
-            const fragment = document.createDocumentFragment();
-            dataToRender.forEach(product => {
-                const percentageClass = getPercentageClass(product.percentageIncome);
-                const row = document.createElement('tr');
-                row.dataset.productId = product.uuid || 'N/A';
-                row.innerHTML = `
-                <td>${product.uuid || 'N/A'}</td>
-                <td>${product.name || 'Nome non disponibile'}</td>
+      const fragment = document.createDocumentFragment();
+      dataToRender.forEach((product) => {
+        const percentageClass = getPercentageClass(product.percentageIncome);
+        const row = document.createElement("tr");
+        row.dataset.productId = product.uuid || "N/A";
+        row.innerHTML = `
+                <td>${product.uuid || "N/A"}</td>
+                <td>${product.name || "Nome non disponibile"}</td>
                 <td class="text-center">${product.totalSold || 0}</td>
                 <td>
                     <div class="cost-sale-cell">
-                        <span class="sale-value">${formatters.currency.format(product.saleIncome || 0)}</span>
+                        <span class="sale-value">${formatters.currency.format(
+                          product.saleIncome || 0
+                        )}</span>
                         <div class="cost-sale-cell-divider"></div>
-                        <span class="cost-value">${formatters.currency.format(product.totalCost || 0)}</span>
+                        <span class="cost-value">${formatters.currency.format(
+                          product.totalCost || 0
+                        )}</span>
                     </div>
                 </td>
-                <td class="text-right">${formatters.currency.format(product.margin || 0)}</td>
+                <td class="text-right">${formatters.currency.format(
+                  product.margin || 0
+                )}</td>
                 <td class="text-center percentage-cell ${percentageClass}">
                     ${(product.percentageIncome || 0).toFixed(2)}%
                 </td>
@@ -566,97 +911,118 @@
                     </div>
                 </td>
             `;
-                fragment.appendChild(row);
-            });
+        fragment.appendChild(row);
+      });
 
-            tableBody.innerHTML = '';
-            tableBody.appendChild(fragment);
-            updateSortIndicators('#product-master-list', appState.productAnalysis.currentSort);
-        }
+      tableBody.innerHTML = "";
+      tableBody.appendChild(fragment);
+      updateSortIndicators(
+        "#product-master-list",
+        appState.productAnalysis.currentSort
+      );
+    }
 
-        function renderAnalyticsDetailView(productId) {
-            const detailBody = document.getElementById('analytics-detail-body');
-            const detailHeader = document.querySelector('#product-detail-view .content-card-header p');
-            if (!detailBody || !detailHeader) return;
+    function renderAnalyticsDetailView(productId) {
+      const detailBody = document.getElementById("analytics-detail-body");
+      const detailHeader = document.querySelector(
+        "#product-detail-view .content-card-header p"
+      );
+      if (!detailBody || !detailHeader) return;
 
-            if (!productId) {
-                detailHeader.textContent = 'Seleziona un prodotto dalla tabella a sinistra per visualizzare i dettagli.';
-                detailBody.innerHTML = '';
-                return;
-            }
+      if (!productId) {
+        detailHeader.textContent =
+          "Seleziona un prodotto dalla tabella a sinistra per visualizzare i dettagli.";
+        detailBody.innerHTML = "";
+        return;
+      }
 
-            const selectedProduct = appState.productAnalysis.productMap[productId];
-            if (!selectedProduct) {
-                detailHeader.textContent = `Errore: Prodotto con ID ${productId} non trovato.`;
-                detailBody.innerHTML = '';
-                return;
-            }
+      const selectedProduct = appState.productAnalysis.productMap[productId];
+      if (!selectedProduct) {
+        detailHeader.textContent = `Errore: Prodotto con ID ${productId} non trovato.`;
+        detailBody.innerHTML = "";
+        return;
+      }
 
-            detailHeader.textContent = `Dettagli per: ${selectedProduct.name}`;
+      detailHeader.textContent = `Dettagli per: ${selectedProduct.name}`;
 
-            const clients = Object.values(selectedProduct.clients);
-            if (clients.length === 0) {
-                detailBody.innerHTML = '<div style="text-align:center; padding: 2rem;">Nessun cliente associato a questo prodotto.</div>';
-                return;
-            }
+      const clients = Object.values(selectedProduct.clients);
+      if (clients.length === 0) {
+        detailBody.innerHTML =
+          '<div style="text-align:center; padding: 2rem;">Nessun cliente associato a questo prodotto.</div>';
+        return;
+      }
 
-            const sortedClients = clients.sort((a, b) => b.percentageIncome - a.percentageIncome);
-            const fragment = document.createDocumentFragment();
-            sortedClients.forEach(client => {
-                const percentageClass = getPercentageClass(client.percentageIncome);
-                const clientDiv = document.createElement('div');
-                clientDiv.className = 'client-list-item';
-                clientDiv.innerHTML = `
-                <div class="client-name" title="${client.name}">${client.name}</div>
+      const sortedClients = clients.sort(
+        (a, b) => b.percentageIncome - a.percentageIncome
+      );
+      const fragment = document.createDocumentFragment();
+      sortedClients.forEach((client) => {
+        const percentageClass = getPercentageClass(client.percentageIncome);
+        const clientDiv = document.createElement("div");
+        clientDiv.className = "client-list-item";
+        clientDiv.innerHTML = `
+                <div class="client-name" title="${client.name}">${
+          client.name
+        }</div>
                 <div class="client-metrics">
                     <div class="cost-sale-cell">
-                        <span class="sale-value">${formatters.currency.format(client.soldIncome)}</span>
+                        <span class="sale-value">${formatters.currency.format(
+                          client.soldIncome
+                        )}</span>
                         <div class="cost-sale-cell-divider"></div>
-                        <span class="cost-value">${formatters.currency.format(client.soldValue)}</span>
+                        <span class="cost-value">${formatters.currency.format(
+                          client.soldValue
+                        )}</span>
                     </div>
                     <div class="percentage-cell ${percentageClass}">
                         ${client.percentageIncome.toFixed(2)}%
                     </div>
                 </div>
             `;
-                fragment.appendChild(clientDiv);
-            });
+        fragment.appendChild(clientDiv);
+      });
 
-            const containerDiv = document.createElement('div');
-            containerDiv.className = 'client-detail-list';
-            containerDiv.appendChild(fragment);
+      const containerDiv = document.createElement("div");
+      containerDiv.className = "client-detail-list";
+      containerDiv.appendChild(fragment);
 
-            detailBody.innerHTML = '';
-            detailBody.appendChild(containerDiv);
-        }
+      detailBody.innerHTML = "";
+      detailBody.appendChild(containerDiv);
+    }
 
-        function renderClientAnalysisMasterTable(dataToRender) {
-            const tableBody = document.getElementById('client-analytics-master-body');
-            if (!tableBody) return;
+    function renderClientAnalysisMasterTable(dataToRender) {
+      const tableBody = document.getElementById("client-analytics-master-body");
+      if (!tableBody) return;
 
-            if (!dataToRender || dataToRender.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun cliente trovato.</td></tr>`;
-                return;
-            }
+      if (!dataToRender || dataToRender.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem;">Nessun cliente trovato.</td></tr>`;
+        return;
+      }
 
-            const fragment = document.createDocumentFragment();
-            dataToRender.forEach(client => {
-                const productsCount = Object.keys(client.productsMap).length;
-                const percentageClass = getPercentageClass(client.marginPercentage);
-                const row = document.createElement('tr');
-                row.dataset.clientId = client.uuid;
-                row.innerHTML = `
+      const fragment = document.createDocumentFragment();
+      dataToRender.forEach((client) => {
+        const productsCount = Object.keys(client.productsMap).length;
+        const percentageClass = getPercentageClass(client.marginPercentage);
+        const row = document.createElement("tr");
+        row.dataset.clientId = client.uuid;
+        row.innerHTML = `
                 <td>${client.uuid}</td>
                 <td>${client.name}</td>
                 <td class="text-center">${productsCount}</td>
                 <td>
                     <div class="cost-sale-cell">
-                        <span class="sale-value">${formatters.currency.format(client.totalRevenue)}</span>
+                        <span class="sale-value">${formatters.currency.format(
+                          client.totalRevenue
+                        )}</span>
                         <div class="cost-sale-cell-divider"></div>
-                        <span class="cost-value">${formatters.currency.format(client.totalCost)}</span>
+                        <span class="cost-value">${formatters.currency.format(
+                          client.totalCost
+                        )}</span>
                     </div>
                 </td>
-                <td class="text-right">${formatters.currency.format(client.totalMargin)}</td>
+                <td class="text-right">${formatters.currency.format(
+                  client.totalMargin
+                )}</td>
                 <td class="text-center percentage-cell ${percentageClass}">
                     ${(client.marginPercentage || 0).toFixed(2)}%
                 </td>
@@ -667,135 +1033,161 @@
                     </div>
                 </td>
             `;
-                fragment.appendChild(row);
-            });
+        fragment.appendChild(row);
+      });
 
-            tableBody.innerHTML = '';
-            tableBody.appendChild(fragment);
-            updateSortIndicators('#client-master-list', appState.clientAnalysis.currentSort);
-        }
+      tableBody.innerHTML = "";
+      tableBody.appendChild(fragment);
+      updateSortIndicators(
+        "#client-master-list",
+        appState.clientAnalysis.currentSort
+      );
+    }
 
-        function renderClientAnalysisDetailView(clientId) {
-            const detailBody = document.getElementById('client-analytics-detail-body');
-            const detailHeader = document.querySelector('#client-detail-view .content-card-header p');
-            if (!detailBody || !detailHeader) return;
+    function renderClientAnalysisDetailView(clientId) {
+      const detailBody = document.getElementById(
+        "client-analytics-detail-body"
+      );
+      const detailHeader = document.querySelector(
+        "#client-detail-view .content-card-header p"
+      );
+      if (!detailBody || !detailHeader) return;
 
-            if (!clientId) {
-                detailHeader.textContent = 'Seleziona un cliente dalla tabella a sinistra per visualizzare i dettagli.';
-                detailBody.innerHTML = '';
-                return;
-            }
+      if (!clientId) {
+        detailHeader.textContent =
+          "Seleziona un cliente dalla tabella a sinistra per visualizzare i dettagli.";
+        detailBody.innerHTML = "";
+        return;
+      }
 
-            const selectedClient = appState.clientAnalysis.clientMap[clientId];
-            if (!selectedClient) {
-                detailHeader.textContent = `Errore: Cliente con ID ${clientId} non trovato.`;
-                detailBody.innerHTML = '';
-                return;
-            }
+      const selectedClient = appState.clientAnalysis.clientMap[clientId];
+      if (!selectedClient) {
+        detailHeader.textContent = `Errore: Cliente con ID ${clientId} non trovato.`;
+        detailBody.innerHTML = "";
+        return;
+      }
 
-            detailHeader.textContent = `Dettagli prodotti acquistati da: ${selectedClient.name}`;
+      detailHeader.textContent = `Dettagli prodotti acquistati da: ${selectedClient.name}`;
 
-            const products = Object.values(selectedClient.productsMap);
-            if (products.length === 0) {
-                detailBody.innerHTML = '<div style="text-align:center; padding: 2rem;">Nessun prodotto associato a questo cliente.</div>';
-                return;
-            }
+      const products = Object.values(selectedClient.productsMap);
+      if (products.length === 0) {
+        detailBody.innerHTML =
+          '<div style="text-align:center; padding: 2rem;">Nessun prodotto associato a questo cliente.</div>';
+        return;
+      }
 
-            const sortedProducts = products.sort((a, b) => b.margin - a.margin);
-            const fragment = document.createDocumentFragment();
-            sortedProducts.forEach(product => {
-                const percentageClass = getPercentageClass(product.marginPercentage);
-                const productDiv = document.createElement('div');
-                productDiv.className = 'client-list-item';
-                productDiv.innerHTML = `
-                <div class="client-name" title="${product.productName}">${product.productName}</div>
+      const sortedProducts = products.sort((a, b) => b.margin - a.margin);
+      const fragment = document.createDocumentFragment();
+      sortedProducts.forEach((product) => {
+        const percentageClass = getPercentageClass(product.marginPercentage);
+        const productDiv = document.createElement("div");
+        productDiv.className = "client-list-item";
+        productDiv.innerHTML = `
+                <div class="client-name" title="${product.productName}">${
+          product.productName
+        }</div>
                 <div class="client-metrics">
                     <div class="cost-sale-cell">
-                        <span class="sale-value">${formatters.currency.format(product.revenue)}</span>
+                        <span class="sale-value">${formatters.currency.format(
+                          product.revenue
+                        )}</span>
                         <div class="cost-sale-cell-divider"></div>
-                        <span class="cost-value">${formatters.currency.format(product.soldValue)}</span>
+                        <span class="cost-value">${formatters.currency.format(
+                          product.soldValue
+                        )}</span>
                     </div>
                     <div class="percentage-cell ${percentageClass}">
                         ${(product.marginPercentage || 0).toFixed(2)}%
                     </div>
                 </div>
             `;
-                fragment.appendChild(productDiv);
-            });
+        fragment.appendChild(productDiv);
+      });
 
-            const containerDiv = document.createElement('div');
-            containerDiv.className = 'client-detail-list';
-            containerDiv.appendChild(fragment);
+      const containerDiv = document.createElement("div");
+      containerDiv.className = "client-detail-list";
+      containerDiv.appendChild(fragment);
 
-            detailBody.innerHTML = '';
-            detailBody.appendChild(containerDiv);
-        }
+      detailBody.innerHTML = "";
+      detailBody.appendChild(containerDiv);
+    }
 
-        // --- UTILITY FUNCTIONS ---
-        function getPercentageClass(percentage) {
-            if (percentage > 20) return 'text-success';
-            if (percentage <= 0) return 'text-danger';
-            return 'text-secondary';
-        }
+    // --- UTILITY FUNCTIONS ---
+    function getPercentageClass(percentage) {
+      if (percentage > 20) return "text-success";
+      if (percentage <= 0) return "text-danger";
+      return "text-secondary";
+    }
 
-        function updateSortIndicators(tableSelector, sortConfig) {
-            const headers = document.querySelectorAll(`${tableSelector} th.sortable`);
-            headers.forEach(th => th.classList.remove('sorted-asc', 'sorted-desc'));
+    function updateSortIndicators(tableSelector, sortConfig) {
+      const headers = document.querySelectorAll(`${tableSelector} th.sortable`);
+      headers.forEach((th) => th.classList.remove("sorted-asc", "sorted-desc"));
 
-            const activeHeader = document.querySelector(`${tableSelector} th[data-sort-key="${sortConfig.key}"]`);
-            if (activeHeader) {
-                activeHeader.classList.add(`sorted-${sortConfig.direction}`);
-            }
-        }
+      const activeHeader = document.querySelector(
+        `${tableSelector} th[data-sort-key="${sortConfig.key}"]`
+      );
+      if (activeHeader) {
+        activeHeader.classList.add(`sorted-${sortConfig.direction}`);
+      }
+    }
 
-        function updateActiveLink(activeLink) {
-            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-            activeLink.classList.add('active');
-        }
+    function updateActiveLink(activeLink) {
+      document
+        .querySelectorAll(".nav-link")
+        .forEach((link) => link.classList.remove("active"));
+      activeLink.classList.add("active");
+    }
 
-        // --- ERROR HANDLING ---
-        function onDataLoadError(error) {
-            const tableBody = document.getElementById('invoices-table-body');
-            const message = error?.message || 'Si è verificato un errore sconosciuto.';
-            if (tableBody) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem; color: var(--danger-color);">${message}</td></tr>`;
-            } else {
-                showError(error);
-            }
-        }
+    // --- ERROR HANDLING ---
+    function onDataLoadError(error) {
+      const tableBody = document.getElementById("invoices-table-body");
+      const message =
+        error?.message || "Si è verificato un errore sconosciuto.";
+      if (tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding: 3rem; color: var(--danger-color);">${message}</td></tr>`;
+      } else {
+        showError(error);
+      }
+    }
 
-        function renderModalError(error) {
-            const modalBody = document.getElementById('modal-body');
-            if (modalBody) {
-                modalBody.innerHTML = `
+    function renderModalError(error) {
+      const modalBody = document.getElementById("modal-body");
+      if (modalBody) {
+        modalBody.innerHTML = `
             <div style="padding: 2rem; text-align: center; color: var(--danger-color);">
               <h4>Errore di Caricamento</h4>
-              <p>${error.message || 'Si è verificato un errore sconosciuto.'}</p>
+              <p>${
+                error.message || "Si è verificato un errore sconosciuto."
+              }</p>
             </div>`;
-            }
-        }
+      }
+    }
 
-        function showError(error) {
-            domCache.contentArea.innerHTML = `<div class="welcome-card"><h3>Errore</h3><p>${error.message || 'Qualcosa è andato storto.'}</p></div>`;
-        }
+    function showError(error) {
+      domCache.contentArea.innerHTML = `<div class="welcome-card"><h3>Errore</h3><p>${
+        error.message || "Qualcosa è andato storto."
+      }</p></div>`;
+    }
 
-        // --- INITIALIZATION ---
-        function initializeEventListeners() {
-            domCache.navMenu?.addEventListener('click', handleNavClick);
-            domCache.contentArea?.addEventListener('click', handleContentClick);
-            domCache.contentArea?.addEventListener('input', handleContentInput);
-            domCache.detailsModal?.addEventListener('click', handleModalClick);
-            domCache.detailsModal?.addEventListener('input', handleModalInput);
-        }
+    // --- INITIALIZATION ---
+    function initializeEventListeners() {
+      domCache.navMenu?.addEventListener("click", handleNavClick);
+      domCache.contentArea?.addEventListener("click", handleContentClick);
+      domCache.contentArea?.addEventListener("input", handleContentInput);
+      domCache.detailsModal?.addEventListener("click", handleModalClick);
+      domCache.detailsModal?.addEventListener("input", handleModalInput);
+    }
 
-        // --- APP STARTUP ---
-        document.addEventListener('DOMContentLoaded', () => {
-            domCache.init();
-            initializeEventListeners();
-            // Optionally, navigate to a default page on load
-            navigateTo('invoices');
-            document.querySelector('.nav-link[data-page="invoices"]').classList.add('active');
-        });
-
-    })();
+    // --- APP STARTUP ---
+    document.addEventListener("DOMContentLoaded", () => {
+      domCache.init();
+      initializeEventListeners();
+      renderReportModal();
+      // Optionally, navigate to a default page on load
+      navigateTo("invoices");
+      document
+        .querySelector('.nav-link[data-page="invoices"]')
+        .classList.add("active");
+    });
+  })();
 </script>

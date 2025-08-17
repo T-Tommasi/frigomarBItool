@@ -6,56 +6,12 @@
           <h3>Analisi Margini Cliente</h3>
           <p>Riepilogo generale dei clienti e relativi margini.</p>
         </div>
-        <button class="reusable-btn" id="report-modal-btn" type="button">Genera Report</button>
+         <button id="report-modal-btn" class="reusable-btn">Genera Report</button>
       </div>
 <div class="search-bar-container">
   <input type="text" id="client-analytics-search-input" class="search-input" placeholder="Cerca cliente...">
 </div>
-<!-- Modale report -->
-<div class="modal-overlay" id="report-modal-overlay" style="display:none;">
-  <div class="modal-content">
-    <h2>Seleziona tipo di report</h2>
-    <form id="report-type-form">
-      <fieldset>
-        <legend>Formato</legend>
-        <label class="disabled"><input type="radio" name="reportFormat" value="PDF" disabled> PDF</label>
-        <label class="disabled"><input type="radio" name="reportFormat" value="DOCS" disabled> DOCS</label>
-        <label class="disabled"><input type="radio" name="reportFormat" value="CSV" disabled> CSV</label>
-        <label><input type="radio" name="reportFormat" value="SHEET" checked> SHEET</label>
-      </fieldset>
-      <fieldset>
-        <legend>Opzioni</legend>
-        <label><input type="checkbox" name="anomalyTracking"> Anomaly tracking</label>
-        <label><input type="checkbox" name="detailedReport"> Detailed report</label>
-      </fieldset>
-      <div class="modal-actions">
-        <button type="button" id="close-modal-btn" class="reusable-btn">Chiudi</button>
-        <button type="submit" class="reusable-btn">Genera</button>
-      </div>
-    </form>
-  </div>
-</div>
-<script>
-  // Modal logic
-  document.addEventListener('DOMContentLoaded', function() {
-    var reportBtn = document.getElementById('report-modal-btn');
-    var modalOverlay = document.getElementById('report-modal-overlay');
-    var closeModalBtn = document.getElementById('close-modal-btn');
-    if (reportBtn && modalOverlay && closeModalBtn) {
-      reportBtn.addEventListener('click', function() {
-        modalOverlay.style.display = 'flex';
-      });
-      closeModalBtn.addEventListener('click', function() {
-        modalOverlay.style.display = 'none';
-      });
-      modalOverlay.addEventListener('click', function(e) {
-        if (e.target === modalOverlay) {
-          modalOverlay.style.display = 'none';
-        }
-      });
-    }
-  });
-</script>
+
     </div>
     <div class="table-container">
       <table class="data-table">

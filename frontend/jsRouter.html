@@ -678,19 +678,39 @@ function handleReportModalSubmit(e) {
     closeReportModal();
 }
 
+function onReportGenerated(result) {
+    alert('Report generato con successo! Controlla il foglio "Report".');
+    console.log('Report generation successful:', result);
+}
+
+function onReportError(error) {
+    alert(`Errore durante la generazione del report: ${error.message}`);
+    console.error('Report generation error:', error);
+}
+
 function generateReport(config) {
     console.log(`Generating ${config.format} report with options:`, config.options);
-    
-    // Example implementation based on format
+    const { anomalyTracking, detailedReport } = config.options;
+
     switch(config.format) {
         case 'SHEET':
-            // Call your Google Sheets generation function
+            console.log('Invoking backend to generate Google Sheet report...');
+            google.script.run
+                .withSuccessHandler(onReportGenerated)
+                .withFailureHandler(onReportError)
+                .writeReportToSheet(
+                    appState.clientAnalysis.clientMap,
+                    {
+                        trackAnomalies: anomalyTracking,
+                        trackDetails: detailedReport
+                    }
+                );
             break;
         case 'PDF':
         case 'DOCS':
         case 'CSV':
-            // These will be implemented when available
             console.log(`${config.format} generation not yet implemented`);
+            alert(`La generazione di report in formato ${config.format} non è ancora implementata.`);
             break;
     }
 }
